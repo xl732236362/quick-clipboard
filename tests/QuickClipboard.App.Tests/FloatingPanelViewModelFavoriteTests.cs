@@ -169,6 +169,7 @@ public sealed class FloatingPanelViewModelFavoriteTests
     {
         return new FloatingPanelViewModel(
             repository ?? new FakeClipboardRepository(),
+            new FakeSettingsRepository(),
             new FakeClock(Now),
             new FakeTextInsertionService());
     }
@@ -270,6 +271,19 @@ public sealed class FloatingPanelViewModelFavoriteTests
     private sealed class FakeClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset Now => now;
+    }
+
+    private sealed class FakeSettingsRepository : ISettingsRepository
+    {
+        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(AppSettings.Defaults);
+        }
+
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeTextInsertionService : ITextInsertionService

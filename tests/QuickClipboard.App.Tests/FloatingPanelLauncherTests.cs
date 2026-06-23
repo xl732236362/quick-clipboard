@@ -78,6 +78,7 @@ public sealed class FloatingPanelLauncherTests
             SourceApp: null);
         var viewModel = new FloatingPanelViewModel(
             new FakeClipboardRepository(calls),
+            new FakeSettingsRepository(),
             new FakeClock(DateTimeOffset.Parse("2026-06-23T01:00:00Z")),
             new FakeTextInsertionService(calls));
         viewModel.CloseRequested += (_, _) => calls.Add("close");
@@ -241,7 +242,21 @@ public sealed class FloatingPanelLauncherTests
         var calls = new List<string>();
         return new FloatingPanelViewModel(
             new FakeClipboardRepository(calls),
+            new FakeSettingsRepository(),
             new FakeClock(DateTimeOffset.Parse("2026-06-23T01:00:00Z")),
             new FakeTextInsertionService(calls));
+    }
+
+    private sealed class FakeSettingsRepository : ISettingsRepository
+    {
+        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(AppSettings.Defaults);
+        }
+
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

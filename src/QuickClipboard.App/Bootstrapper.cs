@@ -40,6 +40,7 @@ public static class Bootstrapper
         {
             var viewModel = new FloatingPanelViewModel(
                 provider.GetRequiredService<IClipboardRepository>(),
+                provider.GetRequiredService<ISettingsRepository>(),
                 provider.GetRequiredService<IClock>(),
                 provider.GetRequiredService<ITextInsertionService>());
             viewModel.FavoriteHotkeysChangedAsync = cancellationToken =>

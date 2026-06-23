@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuickClipboard.Core.Models;
@@ -12,23 +13,30 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     private const int FavoriteTitleLimit = 60;
 
     private readonly IClipboardRepository clipboardRepository;
+    private readonly ISettingsRepository settingsRepository;
     private readonly IClock clock;
     private readonly ITextInsertionService textInsertionService;
 
     public FloatingPanelViewModel(
         IClipboardRepository clipboardRepository,
+        ISettingsRepository settingsRepository,
         IClock clock,
         ITextInsertionService textInsertionService)
     {
         this.clipboardRepository = clipboardRepository;
+        this.settingsRepository = settingsRepository;
         this.clock = clock;
         this.textInsertionService = textInsertionService;
+
+        HistoryItems.CollectionChanged += OnHistoryItemsChanged;
+        FavoriteItems.CollectionChanged += OnFavoriteItemsChanged;
 
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         PasteHistoryCommand = new AsyncRelayCommand<ClipboardItemViewModel>(PasteHistoryAsync);
         PasteFavoriteCommand = new AsyncRelayCommand<FavoriteItemViewModel>(PasteFavoriteAsync);
         AddHistoryToFavoritesCommand = new AsyncRelayCommand<ClipboardItemViewModel>(AddHistoryToFavoritesAsync);
         DeleteHistoryCommand = new AsyncRelayCommand<ClipboardItemViewModel>(DeleteHistoryAsync);
+        ClearHistoryCommand = new AsyncRelayCommand(ClearHistoryAsync);
         DeleteFavoriteCommand = new AsyncRelayCommand<FavoriteItemViewModel>(DeleteFavoriteAsync);
         NewFavoriteCommand = new RelayCommand(StartNewFavorite);
         EditFavoriteCommand = new RelayCommand<FavoriteItemViewModel>(StartEditFavorite);
@@ -38,6 +46,9 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
     public ObservableCollection<ClipboardItemViewModel> HistoryItems { get; } = new();
     public ObservableCollection<FavoriteItemViewModel> FavoriteItems { get; } = new();
+    public bool HasNoHistory => HistoryItems.Count == 0;
+    public bool HasNoFavorites => FavoriteItems.Count == 0;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveFavoriteCommand))]
     private FavoriteEditorViewModel? favoriteEditor;
@@ -45,11 +56,18 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     [ObservableProperty]
     private FavoriteItemViewModel? editingFavorite;
 
+    [ObservableProperty]
+    private bool isRecordingPaused;
+
+    [ObservableProperty]
+    private string recordingStatusText = string.Empty;
+
     public IAsyncRelayCommand RefreshCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> PasteHistoryCommand { get; }
     public IAsyncRelayCommand<FavoriteItemViewModel> PasteFavoriteCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> AddHistoryToFavoritesCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> DeleteHistoryCommand { get; }
+    public IAsyncRelayCommand ClearHistoryCommand { get; }
     public IAsyncRelayCommand<FavoriteItemViewModel> DeleteFavoriteCommand { get; }
     public IRelayCommand NewFavoriteCommand { get; }
     public IRelayCommand<FavoriteItemViewModel> EditFavoriteCommand { get; }
@@ -59,6 +77,16 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     public Func<CancellationToken, Task> FavoriteHotkeysChangedAsync { get; set; } = _ => Task.CompletedTask;
 
     public event EventHandler? CloseRequested;
+
+    private void OnHistoryItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(HasNoHistory));
+    }
+
+    private void OnFavoriteItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(HasNoFavorites));
+    }
 
     partial void OnFavoriteEditorChanged(FavoriteEditorViewModel? oldValue, FavoriteEditorViewModel? newValue)
     {
@@ -85,6 +113,7 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     {
         var historyItems = await clipboardRepository.GetRecentClipboardItemsAsync(HistoryLimit, cancellationToken);
         var favoriteItems = await clipboardRepository.GetFavoritesAsync(cancellationToken);
+        var settings = await settingsRepository.LoadAsync(cancellationToken);
 
         HistoryItems.Clear();
         foreach (var item in historyItems)
@@ -97,6 +126,8 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
         {
             FavoriteItems.Add(new FavoriteItemViewModel(item));
         }
+
+        UpdateRecordingStatus(settings);
     }
 
     private async Task PasteHistoryAsync(ClipboardItemViewModel? item, CancellationToken cancellationToken)
@@ -156,6 +187,12 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
         await clipboardRepository.DeleteClipboardItemAsync(item.Id, cancellationToken);
         HistoryItems.Remove(item);
+    }
+
+    private async Task ClearHistoryAsync(CancellationToken cancellationToken)
+    {
+        await clipboardRepository.ClearClipboardItemsAsync(cancellationToken);
+        HistoryItems.Clear();
     }
 
     private async Task DeleteFavoriteAsync(FavoriteItemViewModel? item, CancellationToken cancellationToken)
@@ -276,6 +313,13 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     private int GetNextFavoriteSortOrder()
     {
         return FavoriteItems.Count == 0 ? 1 : FavoriteItems.Max(item => item.SortOrder) + 1;
+    }
+
+    private void UpdateRecordingStatus(AppSettings settings)
+    {
+        IsRecordingPaused = settings.PauseRecordingIndefinitely
+            || (settings.PauseRecordingUntil is not null && settings.PauseRecordingUntil > clock.Now);
+        RecordingStatusText = IsRecordingPaused ? "Recording paused" : string.Empty;
     }
 
     private async Task PreparePasteTargetAsync(CancellationToken cancellationToken)
