@@ -39,24 +39,28 @@ public sealed class GlobalHotkeyService : IDisposable
         }
 
         EnsureSource();
-        UnregisterCore(hotkeyId);
 
-        var nativeId = GetNextNativeId();
         var modifiers = GetNativeModifiers(hotkey.Modifiers);
         if (!TryGetVirtualKey(hotkey.Key, out var virtualKey))
         {
             return false;
         }
 
-        if (!NativeMethods.RegisterHotKey(_source!.Handle, nativeId, modifiers, virtualKey))
+        var newNativeId = GetNextNativeId();
+        if (!NativeMethods.RegisterHotKey(_source!.Handle, newNativeId, modifiers, virtualKey))
         {
             var error = new Win32Exception(Marshal.GetLastPInvokeError());
             Debug.WriteLine($"GlobalHotkeyService failed to register '{hotkeyId}' ({hotkey}): {error.Message}");
             return false;
         }
 
-        _nativeIdsByHotkeyId[hotkeyId] = nativeId;
-        _hotkeyIdsByNativeId[nativeId] = hotkeyId;
+        if (_nativeIdsByHotkeyId.TryGetValue(hotkeyId, out var oldNativeId))
+        {
+            UnregisterNativeId(hotkeyId, oldNativeId);
+        }
+
+        _nativeIdsByHotkeyId[hotkeyId] = newNativeId;
+        _hotkeyIdsByNativeId[newNativeId] = hotkeyId;
         return true;
     }
 
@@ -188,6 +192,11 @@ public sealed class GlobalHotkeyService : IDisposable
             return;
         }
 
+        UnregisterNativeId(hotkeyId, nativeId);
+    }
+
+    private void UnregisterNativeId(string hotkeyId, int nativeId)
+    {
         _hotkeyIdsByNativeId.Remove(nativeId);
 
         if (_source is not null && !NativeMethods.UnregisterHotKey(_source.Handle, nativeId))
