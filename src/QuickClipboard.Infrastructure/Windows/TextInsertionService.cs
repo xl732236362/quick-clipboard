@@ -2,11 +2,12 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using QuickClipboard.Core.Services;
 using Application = System.Windows.Application;
 
 namespace QuickClipboard.Infrastructure.Windows;
 
-public sealed class TextInsertionService
+public sealed class TextInsertionService : ITextInsertionService
 {
     private static readonly TimeSpan ClipboardRestoreDelay = TimeSpan.FromMilliseconds(120);
 

@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuickClipboard.Core.Models;
 using QuickClipboard.Core.Services;
-using QuickClipboard.Infrastructure.Windows;
 
 namespace QuickClipboard.App.Presentation.ViewModels;
 
@@ -14,12 +13,12 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
     private readonly IClipboardRepository clipboardRepository;
     private readonly IClock clock;
-    private readonly TextInsertionService textInsertionService;
+    private readonly ITextInsertionService textInsertionService;
 
     public FloatingPanelViewModel(
         IClipboardRepository clipboardRepository,
         IClock clock,
-        TextInsertionService textInsertionService)
+        ITextInsertionService textInsertionService)
     {
         this.clipboardRepository = clipboardRepository;
         this.clock = clock;

@@ -29,6 +29,7 @@ public static class Bootstrapper
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<PanelPositionService>();
         services.AddSingleton<TextInsertionService>();
+        services.AddSingleton<ITextInsertionService>(provider => provider.GetRequiredService<TextInsertionService>());
         services.AddSingleton<TrayApplicationService>();
 
         return services.BuildServiceProvider(validateScopes: true);
