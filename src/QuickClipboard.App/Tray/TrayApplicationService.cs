@@ -23,6 +23,8 @@ public sealed class TrayApplicationService(
 
     private Forms.NotifyIcon? _trayIcon;
     private AppSettings _settings = AppSettings.Defaults;
+    private readonly SemaphoreSlim _recordingGate = new(1, 1);
+    private readonly SemaphoreSlim _settingsGate = new(1, 1);
     private bool _started;
     private bool _disposed;
 
@@ -36,7 +38,23 @@ public sealed class TrayApplicationService(
         }
 
         await databaseInitializer.InitializeAsync(cancellationToken);
-        _settings = await settingsRepository.LoadAsync(cancellationToken);
+        var loadedSettings = await settingsRepository.LoadAsync(cancellationToken);
+        _settings = NormalizeSettings(loadedSettings);
+        if (_settings != loadedSettings)
+        {
+            try
+            {
+                await SaveSettingsAsync(_settings, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to save normalized settings. {ex}");
+            }
+        }
 
         CreateTrayIcon();
         RegisterPanelHotkey(_settings);
@@ -178,8 +196,34 @@ public sealed class TrayApplicationService(
 
     private async Task SaveSettingsAsync(AppSettings settings)
     {
-        _settings = settings;
-        await settingsRepository.SaveAsync(settings);
+        var normalized = NormalizeSettings(settings);
+
+        await _settingsGate.WaitAsync();
+        try
+        {
+            await settingsRepository.SaveAsync(normalized);
+            _settings = normalized;
+        }
+        finally
+        {
+            _settingsGate.Release();
+        }
+    }
+
+    private async Task SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken)
+    {
+        var normalized = NormalizeSettings(settings);
+
+        await _settingsGate.WaitAsync(cancellationToken);
+        try
+        {
+            await settingsRepository.SaveAsync(normalized, cancellationToken);
+            _settings = normalized;
+        }
+        finally
+        {
+            _settingsGate.Release();
+        }
     }
 
     private void ClearHistory()
@@ -199,37 +243,63 @@ public sealed class TrayApplicationService(
 
     private async Task RecordCopiedTextAsync(string text)
     {
-        var settings = _settings;
-        var now = clock.Now;
-        if (IsPaused(settings, now))
+        await _recordingGate.WaitAsync();
+        try
         {
-            return;
-        }
+            var settings = NormalizeSettings(_settings);
+            var now = clock.Now;
+            if (IsPaused(settings, now))
+            {
+                return;
+            }
 
-        var latestHash = await clipboardRepository.GetLatestClipboardHashAsync();
-        var decision = capturePolicy.Evaluate(text, latestHash, settings);
-        if (!decision.Accepted)
+            var latestHash = await clipboardRepository.GetLatestClipboardHashAsync();
+            var decision = capturePolicy.Evaluate(text, latestHash, settings);
+            if (!decision.Accepted)
+            {
+                return;
+            }
+
+            var item = new ClipboardItem(
+                Guid.NewGuid(),
+                decision.NormalizedContent!,
+                decision.ContentHash!,
+                "text",
+                now,
+                LastUsedAt: null,
+                UseCount: 0,
+                SourceApp: null);
+
+            await clipboardRepository.AddClipboardItemAsync(item, settings.HistoryRetentionCount);
+        }
+        finally
         {
-            return;
+            _recordingGate.Release();
         }
-
-        var item = new ClipboardItem(
-            Guid.NewGuid(),
-            decision.NormalizedContent!,
-            decision.ContentHash!,
-            "text",
-            now,
-            LastUsedAt: null,
-            UseCount: 0,
-            SourceApp: null);
-
-        await clipboardRepository.AddClipboardItemAsync(item, settings.HistoryRetentionCount);
     }
 
     private static bool IsPaused(AppSettings settings, DateTimeOffset now)
     {
         return settings.PauseRecordingIndefinitely
             || (settings.PauseRecordingUntil is not null && settings.PauseRecordingUntil > now);
+    }
+
+    private static AppSettings NormalizeSettings(AppSettings settings)
+    {
+        var defaults = AppSettings.Defaults;
+
+        return settings with
+        {
+            PanelHotkey = string.IsNullOrWhiteSpace(settings.PanelHotkey)
+                ? defaults.PanelHotkey
+                : settings.PanelHotkey,
+            HistoryRetentionCount = settings.HistoryRetentionCount <= 0
+                ? defaults.HistoryRetentionCount
+                : settings.HistoryRetentionCount,
+            MaximumTextLength = settings.MaximumTextLength <= 0
+                ? defaults.MaximumTextLength
+                : settings.MaximumTextLength
+        };
     }
 
     private static void FireAndForget(Task task, string errorMessage)
