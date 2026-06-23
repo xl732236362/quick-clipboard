@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -19,8 +20,11 @@ public sealed class ClipboardMonitor : IDisposable
     {
         ThrowIfDisposed();
 
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is not null && !dispatcher.CheckAccess())
+        var dispatcher = Application.Current?.Dispatcher
+            ?? throw new InvalidOperationException(
+                "ClipboardMonitor must be started after the WPF application dispatcher is available.");
+
+        if (!dispatcher.CheckAccess())
         {
             dispatcher.Invoke(Start);
             return;
@@ -59,6 +63,13 @@ public sealed class ClipboardMonitor : IDisposable
     public void SuppressNextChanges(TimeSpan duration)
     {
         ThrowIfDisposed();
+
+        var dispatcher = _source?.Dispatcher ?? Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(() => SuppressNextChanges(duration));
+            return;
+        }
 
         _suppressedUntil = DateTimeOffset.Now.Add(duration);
     }
@@ -112,6 +123,8 @@ public sealed class ClipboardMonitor : IDisposable
             return;
         }
 
+        string text;
+
         try
         {
             if (!Clipboard.ContainsText())
@@ -119,10 +132,34 @@ public sealed class ClipboardMonitor : IDisposable
                 return;
             }
 
-            TextCopied?.Invoke(this, Clipboard.GetText());
+            text = Clipboard.GetText();
         }
         catch (ExternalException)
         {
+            return;
+        }
+
+        RaiseTextCopied(text);
+    }
+
+    private void RaiseTextCopied(string text)
+    {
+        var handlers = TextCopied;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (var subscriber in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((EventHandler<string>)subscriber)(this, text);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ClipboardMonitor TextCopied subscriber failed: {ex}");
+            }
         }
     }
 
