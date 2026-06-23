@@ -51,9 +51,17 @@ public sealed class SqliteClipboardRepository(Func<SqliteConnection> createConne
 
     public async Task AddClipboardItemAsync(ClipboardItem item, int retentionLimit, CancellationToken cancellationToken = default)
     {
+        if (retentionLimit < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(retentionLimit), retentionLimit, "Retention limit cannot be negative.");
+        }
+
         await WithConnectionAsync(async connection =>
         {
+            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
             await using var insertCommand = connection.CreateCommand();
+            insertCommand.Transaction = transaction;
             insertCommand.CommandText = """
                 INSERT INTO clipboard_items (
                     id, content, content_hash, content_type, created_at, last_used_at, use_count, source_app
@@ -66,6 +74,7 @@ public sealed class SqliteClipboardRepository(Func<SqliteConnection> createConne
             await insertCommand.ExecuteNonQueryAsync(cancellationToken);
 
             await using var trimCommand = connection.CreateCommand();
+            trimCommand.Transaction = transaction;
             trimCommand.CommandText = """
                 DELETE FROM clipboard_items
                 WHERE id NOT IN (
@@ -76,6 +85,8 @@ public sealed class SqliteClipboardRepository(Func<SqliteConnection> createConne
                 """;
             trimCommand.Parameters.AddWithValue("$limit", retentionLimit);
             await trimCommand.ExecuteNonQueryAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
         }, cancellationToken);
     }
 
@@ -294,7 +305,7 @@ public sealed class SqliteClipboardRepository(Func<SqliteConnection> createConne
 
     private static string FormatTimestamp(DateTimeOffset value)
     {
-        return value.ToString("O", CultureInfo.InvariantCulture);
+        return value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
     }
 
     private static DateTimeOffset? GetNullableTimestamp(SqliteDataReader reader, int ordinal)

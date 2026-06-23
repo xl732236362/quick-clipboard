@@ -24,6 +24,49 @@ public sealed class SqliteClipboardRepositoryTests
     }
 
     [Fact]
+    public async Task GetRecentClipboardItemsAsync_OrdersByUtcInstantAcrossOffsets()
+    {
+        await using var connection = await CreateInitializedConnectionAsync();
+        var repository = new SqliteClipboardRepository(() => connection);
+        var olderInstant = DateTimeOffset.Parse("2026-06-23T12:00:00+08:00");
+        var newerInstant = DateTimeOffset.Parse("2026-06-23T05:00:00+00:00");
+
+        await repository.AddClipboardItemAsync(CreateClipboardItem("older", olderInstant), retentionLimit: 10);
+        await repository.AddClipboardItemAsync(CreateClipboardItem("newer", newerInstant), retentionLimit: 10);
+
+        var items = await repository.GetRecentClipboardItemsAsync(10);
+
+        items.Select(item => item.Content).Should().Equal("newer", "older");
+    }
+
+    [Fact]
+    public async Task GetLatestClipboardHashAsync_ReturnsNewestHashAcrossOffsets()
+    {
+        await using var connection = await CreateInitializedConnectionAsync();
+        var repository = new SqliteClipboardRepository(() => connection);
+        var olderInstant = DateTimeOffset.Parse("2026-06-23T12:00:00+08:00");
+        var newerInstant = DateTimeOffset.Parse("2026-06-23T05:00:00+00:00");
+
+        await repository.AddClipboardItemAsync(new ClipboardItem(Guid.NewGuid(), "older", "older-hash", "text", olderInstant, null, 0, null), retentionLimit: 10);
+        await repository.AddClipboardItemAsync(new ClipboardItem(Guid.NewGuid(), "newer", "newer-hash", "text", newerInstant, null, 0, null), retentionLimit: 10);
+
+        var hash = await repository.GetLatestClipboardHashAsync();
+
+        hash.Should().Be("newer-hash");
+    }
+
+    [Fact]
+    public async Task AddClipboardItemAsync_RejectsNegativeRetentionLimit()
+    {
+        await using var connection = await CreateInitializedConnectionAsync();
+        var repository = new SqliteClipboardRepository(() => connection);
+
+        var act = async () => await repository.AddClipboardItemAsync(CreateClipboardItem("item", DateTimeOffset.UtcNow), retentionLimit: -1);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public async Task Favorites_CanBeCreatedUpdatedDeletedAndMarkedUsed()
     {
         await using var connection = await CreateInitializedConnectionAsync();
