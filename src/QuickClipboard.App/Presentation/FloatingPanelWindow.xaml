@@ -9,6 +9,7 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        ShowActivated="False"
         Topmost="True"
         Background="Transparent"
         AllowsTransparency="True">
@@ -69,13 +70,13 @@
             </Grid.RowDefinitions>
 
             <TabControl x:Name="PanelTabs" Grid.Row="0">
-                <TabItem Header="History">
+                <TabItem Header="历史">
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Top"
                                 HorizontalAlignment="Right"
                                 Margin="0,0,0,6"
                                 Command="{Binding ClearHistoryCommand}"
-                                Content="Clear"
+                                Content="清空"
                                 Style="{StaticResource PanelActionButtonStyle}" />
 
                         <ListBox ItemsSource="{Binding HistoryItems}"
@@ -101,15 +102,15 @@
                                         <StackPanel Grid.Row="2" Orientation="Horizontal">
                                             <Button Command="{Binding DataContext.PasteHistoryCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Paste"
+                                                    Content="粘贴"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                             <Button Command="{Binding DataContext.AddHistoryToFavoritesCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Favorite"
+                                                    Content="收藏"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                             <Button Command="{Binding DataContext.DeleteHistoryCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Delete"
+                                                    Content="删除"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                         </StackPanel>
                                     </Grid>
@@ -119,12 +120,12 @@
                     </DockPanel>
                 </TabItem>
 
-                <TabItem Header="Favorites">
+                <TabItem Header="收藏">
                     <DockPanel LastChildFill="True">
                         <StackPanel DockPanel.Dock="Top">
                             <Button HorizontalAlignment="Left"
                                     Command="{Binding NewFavoriteCommand}"
-                                    Content="New"
+                                    Content="新建"
                                     Style="{StaticResource PanelActionButtonStyle}" />
 
                             <Border Margin="0,8,0,10"
@@ -146,13 +147,13 @@
                                 <StackPanel DataContext="{Binding FavoriteEditor}">
                                     <TextBlock FontSize="11"
                                                Style="{StaticResource PanelMutedTextBlockStyle}"
-                                               Text="Title" />
+                                               Text="标题" />
                                     <TextBox Style="{StaticResource PanelEditorTextBoxStyle}"
                                              Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
 
                                     <TextBlock FontSize="11"
                                                Style="{StaticResource PanelMutedTextBlockStyle}"
-                                               Text="Content" />
+                                               Text="内容" />
                                     <TextBox AcceptsReturn="True"
                                              MaxHeight="120"
                                              MinHeight="72"
@@ -163,7 +164,7 @@
 
                                     <TextBlock FontSize="11"
                                                Style="{StaticResource PanelMutedTextBlockStyle}"
-                                               Text="Hotkey" />
+                                               Text="快捷键" />
                                     <TextBox Style="{StaticResource PanelEditorTextBoxStyle}"
                                              Text="{Binding Hotkey, UpdateSourceTrigger=PropertyChanged}" />
                                     <TextBlock Margin="0,0,0,8"
@@ -173,10 +174,10 @@
                                     <StackPanel DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                 Orientation="Horizontal">
                                         <Button Command="{Binding SaveFavoriteCommand}"
-                                                Content="Save"
+                                                Content="保存"
                                                 Style="{StaticResource PanelActionButtonStyle}" />
                                         <Button Command="{Binding CancelFavoriteEditCommand}"
-                                                Content="Cancel"
+                                                Content="取消"
                                                 Style="{StaticResource PanelActionButtonStyle}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -208,19 +209,19 @@
                                                    Margin="0,4,0,8"
                                                    FontSize="11"
                                                    Style="{StaticResource PanelMutedTextBlockStyle}"
-                                                   Text="{Binding Hotkey, TargetNullValue=No hotkey, FallbackValue=No hotkey}" />
+                                                   Text="{Binding Hotkey, TargetNullValue=未设置快捷键, FallbackValue=未设置快捷键}" />
                                         <StackPanel Grid.Row="3" Orientation="Horizontal">
                                             <Button Command="{Binding DataContext.PasteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Paste"
+                                                    Content="粘贴"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                             <Button Command="{Binding DataContext.EditFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Edit"
+                                                    Content="编辑"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                             <Button Command="{Binding DataContext.DeleteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     CommandParameter="{Binding}"
-                                                    Content="Delete"
+                                                    Content="删除"
                                                     Style="{StaticResource PanelActionButtonStyle}" />
                                         </StackPanel>
                                     </Grid>
@@ -247,7 +248,7 @@
                 </TextBlock>
                 <TextBlock Margin="0,16,0,0"
                            FontSize="11"
-                           Text="No history yet">
+                           Text="暂无历史记录">
                     <TextBlock.Style>
                         <Style BasedOn="{StaticResource PanelMutedTextBlockStyle}" TargetType="{x:Type TextBlock}">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -265,7 +266,7 @@
                 </TextBlock>
                 <TextBlock Margin="0,16,0,0"
                            FontSize="11"
-                           Text="No favorites yet">
+                           Text="暂无收藏">
                     <TextBlock.Style>
                         <Style BasedOn="{StaticResource PanelMutedTextBlockStyle}" TargetType="{x:Type TextBlock}">
                             <Setter Property="Visibility" Value="Collapsed" />

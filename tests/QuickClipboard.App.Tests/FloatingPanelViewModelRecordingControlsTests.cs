@@ -37,7 +37,7 @@ public sealed class FloatingPanelViewModelRecordingControlsTests
         await viewModel.RefreshCommand.ExecuteAsync(null);
 
         viewModel.IsRecordingPaused.Should().BeTrue();
-        viewModel.RecordingStatusText.Should().Be("Recording paused");
+        viewModel.RecordingStatusText.Should().Be("记录已暂停");
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class FloatingPanelViewModelRecordingControlsTests
         await viewModel.RefreshCommand.ExecuteAsync(null);
 
         viewModel.IsRecordingPaused.Should().BeTrue();
-        viewModel.RecordingStatusText.Should().Be("Recording paused");
+        viewModel.RecordingStatusText.Should().Be("记录已暂停");
     }
 
     [Fact]

@@ -165,6 +165,27 @@ public sealed class FloatingPanelViewModelFavoriteTests
         refreshCount.Should().Be(1);
     }
 
+    [Fact]
+    public async Task AddHistoryToFavoritesUsesChineseDefaultTitleWhenContentHasNoText()
+    {
+        var repository = new FakeClipboardRepository();
+        var viewModel = CreateViewModel(repository);
+        var historyItem = new ClipboardItemViewModel(new ClipboardItem(
+            Guid.NewGuid(),
+            " \r\n\t ",
+            "hash",
+            "text",
+            Now,
+            LastUsedAt: null,
+            UseCount: 0,
+            SourceApp: null));
+
+        await viewModel.AddHistoryToFavoritesCommand.ExecuteAsync(historyItem);
+
+        repository.AddedFavorites.Should().ContainSingle();
+        repository.AddedFavorites[0].Title.Should().Be("收藏");
+    }
+
     private static FloatingPanelViewModel CreateViewModel(FakeClipboardRepository? repository = null)
     {
         return new FloatingPanelViewModel(

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuickClipboard.Core.Models;
@@ -138,7 +139,11 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
         }
 
         await PreparePasteTargetAsync(cancellationToken);
-        await textInsertionService.InsertTextAsync(item.Content, cancellationToken);
+        if (!await TryInsertTextAsync(item.Content, cancellationToken))
+        {
+            return;
+        }
+
         await clipboardRepository.MarkClipboardItemUsedAsync(item.Id, clock.Now, cancellationToken);
     }
 
@@ -150,7 +155,11 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
         }
 
         await PreparePasteTargetAsync(cancellationToken);
-        await textInsertionService.InsertTextAsync(item.Content, cancellationToken);
+        if (!await TryInsertTextAsync(item.Content, cancellationToken))
+        {
+            return;
+        }
+
         await clipboardRepository.MarkFavoriteUsedAsync(item.Id, clock.Now, cancellationToken);
     }
 
@@ -319,13 +328,31 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     {
         IsRecordingPaused = settings.PauseRecordingIndefinitely
             || (settings.PauseRecordingUntil is not null && settings.PauseRecordingUntil > clock.Now);
-        RecordingStatusText = IsRecordingPaused ? "Recording paused" : string.Empty;
+        RecordingStatusText = IsRecordingPaused ? "记录已暂停" : string.Empty;
     }
 
     private async Task PreparePasteTargetAsync(CancellationToken cancellationToken)
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
         await RestorePasteTarget(cancellationToken);
+    }
+
+    private async Task<bool> TryInsertTextAsync(string content, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await textInsertionService.InsertTextAsync(content, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to insert text from floating panel: {ex}");
+            return false;
+        }
     }
 
     private static string CreateFavoriteTitle(string content)
@@ -335,7 +362,7 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
             .Select(line => line.Trim())
             .FirstOrDefault(line => line.Length > 0);
 
-        title = string.IsNullOrEmpty(title) ? "Favorite" : title;
+        title = string.IsNullOrEmpty(title) ? "收藏" : title;
         return title.Length <= FavoriteTitleLimit ? title : title[..FavoriteTitleLimit];
     }
 

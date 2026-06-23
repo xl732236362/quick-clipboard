@@ -16,6 +16,10 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsIconic(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [LibraryImport("user32.dll")]
@@ -24,6 +28,40 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     internal static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [LibraryImport("user32.dll")]
+    internal static partial IntPtr GetOpenClipboardWindow();
+
+    [LibraryImport("user32.dll")]
+    internal static partial IntPtr GetClipboardOwner();
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool EmptyClipboard();
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool CloseClipboard();
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    internal static partial IntPtr GlobalAlloc(uint uFlags, nuint dwBytes);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    internal static partial IntPtr GlobalLock(IntPtr hMem);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GlobalUnlock(IntPtr hMem);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    internal static partial IntPtr GlobalFree(IntPtr hMem);
 
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -60,6 +98,7 @@ internal static partial class NativeMethods
 
     internal const uint INPUT_KEYBOARD = 1;
     internal const ushort KEYEVENTF_KEYUP = 0x0002;
+    internal const uint KEYEVENTF_UNICODE = 0x0004;
     internal const int VK_SHIFT = 0x10;
     internal const ushort VK_CONTROL = 0x11;
     internal const int VK_MENU = 0x12;

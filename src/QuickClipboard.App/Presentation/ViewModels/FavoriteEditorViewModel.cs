@@ -28,17 +28,17 @@ public sealed partial class FavoriteEditorViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(Title))
             {
-                return "Title is required.";
+                return "请输入标题。";
             }
 
             if (string.IsNullOrWhiteSpace(Content))
             {
-                return "Content is required.";
+                return "请输入内容。";
             }
 
             if (!string.IsNullOrWhiteSpace(Hotkey) && !QuickClipboard.Core.Hotkeys.Hotkey.TryParse(Hotkey, out _))
             {
-                return "Hotkey is invalid.";
+                return "快捷键格式无效。";
             }
 
             return null;

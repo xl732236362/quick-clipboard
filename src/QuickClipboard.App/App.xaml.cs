@@ -35,7 +35,7 @@ public partial class App
         {
             Debug.WriteLine($"Quick Clipboard startup failed: {ex}");
             System.Windows.MessageBox.Show(
-                "Quick Clipboard could not start. See debug output for details.",
+                "Quick Clipboard 启动失败。请查看调试输出了解详情。",
                 "Quick Clipboard",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);

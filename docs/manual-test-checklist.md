@@ -1,56 +1,56 @@
-# Quick Clipboard Manual Test Checklist
+# Quick Clipboard 手动测试清单
 
-## Startup
+## 启动
 
-- [ ] App starts without showing a main window.
-- [ ] Tray icon appears.
-- [ ] Tray Exit closes the process.
+- [ ] 应用启动后不显示主窗口。
+- [ ] 系统托盘图标出现。
+- [ ] 托盘菜单“退出”可以关闭进程。
 
-## Clipboard History
+## 剪贴板历史
 
-- [ ] Copy normal text from Notepad; it appears in history.
-- [ ] Copy the same text twice; only one immediate history item appears.
-- [ ] Copy `123456`; it is not recorded.
-- [ ] Copy `password=my-secret-value`; it is not recorded.
-- [ ] Clear history removes all history items.
+- [ ] 从记事本复制普通文本；该文本出现在历史记录中。
+- [ ] 连续复制同一段文本两次；只出现一条即时历史记录。
+- [ ] 复制 `123456`；不会被记录。
+- [ ] 复制 `password=my-secret-value`；不会被记录。
+- [ ] 清空历史会移除所有历史项。
 
-## Floating Panel
+## 悬浮面板
 
-- [ ] `Ctrl+Alt+V` opens the panel.
-- [ ] Panel opens near caret in Notepad.
-- [ ] Panel falls back to mouse position when caret is unavailable.
-- [ ] Panel stays inside screen edges.
-- [ ] `Esc` closes the panel.
-- [ ] Clicking outside closes the panel.
+- [ ] `Ctrl+Alt+V` 可以打开面板。
+- [ ] 面板在记事本光标附近打开。
+- [ ] 获取不到光标位置时，面板回退到鼠标位置。
+- [ ] 面板保持在屏幕边界内。
+- [ ] `Esc` 可以关闭面板。
+- [ ] 点击面板外部可以关闭面板。
 
-## Insertion
+## 输入
 
-- [ ] Clicking a history item inserts text into Notepad.
-- [ ] Clicking a favorite item inserts text into Notepad.
-- [ ] Previous clipboard content is restored after insertion.
-- [ ] Unicode and Chinese text paste correctly.
+- [ ] 点击历史项可以把文本输入到记事本。
+- [ ] 点击收藏项可以把文本输入到记事本。
+- [ ] 输入完成后会恢复之前的剪贴板内容。
+- [ ] Unicode 和中文文本可以正确粘贴。
 
-## Favorites
+## 收藏
 
-- [ ] History item can be added to favorites.
-- [ ] Favorite can be created manually.
-- [ ] Favorite can be edited.
-- [ ] Favorite can be deleted.
-- [ ] Favorite hotkey inserts content without opening the panel.
-- [ ] Deleted favorite hotkey no longer inserts content.
+- [ ] 历史项可以加入收藏。
+- [ ] 可以手动新建收藏。
+- [ ] 可以编辑收藏。
+- [ ] 可以删除收藏。
+- [ ] 收藏快捷键可以在不打开面板的情况下输入内容。
+- [ ] 删除收藏后，其快捷键不再输入内容。
 
-## Pause Recording
+## 暂停记录
 
-- [ ] Pause for 10 minutes blocks new history.
-- [ ] Pause for 1 hour blocks new history.
-- [ ] Pause until resumed blocks new history after restart.
-- [ ] Resume recording allows new history.
+- [ ] 暂停 10 分钟会阻止新增历史记录。
+- [ ] 暂停 1 小时会阻止新增历史记录。
+- [ ] 暂停直到手动恢复后，重启应用仍会阻止新增历史记录。
+- [ ] 恢复记录后允许新增历史记录。
 
-## Compatibility
+## 兼容性
 
-- [ ] Browser input field insertion works.
-- [ ] VS Code editor insertion works.
-- [ ] Common chat app insertion works.
-- [ ] Behavior is acceptable with Chinese input method enabled.
-- [ ] Elevated apps either work or fail without crashing.
-- [ ] Multi-monitor positioning is acceptable.
+- [ ] 浏览器输入框可以正常输入。
+- [ ] VS Code 编辑器可以正常输入。
+- [ ] 常见聊天应用可以正常输入。
+- [ ] 开启中文输入法时行为可接受。
+- [ ] 管理员权限应用中要么可用，要么失败但不崩溃。
+- [ ] 多显示器定位表现可接受。

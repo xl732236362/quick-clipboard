@@ -9,7 +9,7 @@ using QuickClipboard.Core.Services;
 
 namespace QuickClipboard.Infrastructure.Windows;
 
-public sealed class ClipboardMonitor : IClipboardChangeSuppressor, IDisposable
+public sealed class ClipboardMonitor : IClipboardChangeSuppressor, IClipboardOwnerWindow, IDisposable
 {
     private static readonly TimeSpan DefaultSuppressionDuration = TimeSpan.FromMilliseconds(500);
 
@@ -81,6 +81,11 @@ public sealed class ClipboardMonitor : IClipboardChangeSuppressor, IDisposable
     public void SuppressNextChanges()
     {
         SuppressNextChanges(DefaultSuppressionDuration);
+    }
+
+    public IntPtr GetHandle()
+    {
+        return _source?.Handle ?? IntPtr.Zero;
     }
 
     public void Dispose()

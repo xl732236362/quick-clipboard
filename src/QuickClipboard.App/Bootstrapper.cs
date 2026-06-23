@@ -29,12 +29,15 @@ public static class Bootstrapper
         services.AddSingleton<IClock, WindowsClock>();
         services.AddSingleton<ClipboardMonitor>();
         services.AddSingleton<IClipboardChangeSuppressor>(provider => provider.GetRequiredService<ClipboardMonitor>());
+        services.AddSingleton<IClipboardOwnerWindow>(provider => provider.GetRequiredService<ClipboardMonitor>());
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<IGlobalHotkeyRegistrar>(provider => provider.GetRequiredService<GlobalHotkeyService>());
         services.AddSingleton<PanelPositionService>();
         services.AddSingleton<IForegroundWindowRestorer, ForegroundWindowRestorer>();
         services.AddSingleton<IHotkeyInputGate, HotkeyInputGate>();
-        services.AddSingleton<TextInsertionService>();
+        services.AddSingleton(provider => TextInsertionServiceFactory.CreateNativeClipboardTextInsertionService(
+            provider.GetRequiredService<IClipboardChangeSuppressor>(),
+            provider.GetRequiredService<IClipboardOwnerWindow>()));
         services.AddSingleton<ITextInsertionService>(provider => provider.GetRequiredService<TextInsertionService>());
         services.AddSingleton<FavoriteHotkeyController>();
         services.AddTransient(provider =>

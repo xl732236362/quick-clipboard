@@ -94,6 +94,71 @@ public sealed class FloatingPanelLauncherTests
     }
 
     [Fact]
+    public async Task PasteHistoryCommandDoesNotThrowWhenTextInsertionFails()
+    {
+        var calls = new List<string>();
+        var item = new ClipboardItem(
+            Guid.NewGuid(),
+            "content",
+            "hash",
+            "text/plain",
+            DateTimeOffset.Parse("2026-06-23T00:00:00Z"),
+            null,
+            0,
+            SourceApp: null);
+        var viewModel = new FloatingPanelViewModel(
+            new FakeClipboardRepository(calls),
+            new FakeSettingsRepository(),
+            new FakeClock(DateTimeOffset.Parse("2026-06-23T01:00:00Z")),
+            new FakeTextInsertionService(calls, failInsertion: true));
+        viewModel.CloseRequested += (_, _) => calls.Add("close");
+        viewModel.RestorePasteTarget = _ =>
+        {
+            calls.Add("restore");
+            return Task.CompletedTask;
+        };
+
+        var act = () => viewModel.PasteHistoryCommand.ExecuteAsync(new ClipboardItemViewModel(item));
+
+        await act.Should().NotThrowAsync();
+        calls.Should().ContainInOrder("close", "restore", "insert:content");
+        calls.Should().NotContain("mark-history");
+    }
+
+    [Fact]
+    public async Task PasteFavoriteCommandDoesNotThrowWhenTextInsertionFails()
+    {
+        var calls = new List<string>();
+        var item = new FavoriteItem(
+            Guid.NewGuid(),
+            "Title",
+            "content",
+            Hotkey: null,
+            SortOrder: 1,
+            CreatedAt: DateTimeOffset.Parse("2026-06-23T00:00:00Z"),
+            UpdatedAt: DateTimeOffset.Parse("2026-06-23T00:00:00Z"),
+            LastUsedAt: null,
+            UseCount: 0);
+        var viewModel = new FloatingPanelViewModel(
+            new FakeClipboardRepository(calls),
+            new FakeSettingsRepository(),
+            new FakeClock(DateTimeOffset.Parse("2026-06-23T01:00:00Z")),
+            new FakeTextInsertionService(calls, failInsertion: true));
+        viewModel.CloseRequested += (_, _) => calls.Add("close");
+        viewModel.RestorePasteTarget = _ =>
+        {
+            calls.Add("restore");
+            return Task.CompletedTask;
+        };
+
+        var act = () => viewModel.PasteFavoriteCommand.ExecuteAsync(new FavoriteItemViewModel(item));
+
+        await act.Should().NotThrowAsync();
+        calls.Should().ContainInOrder("close", "restore", "insert:content");
+        calls.Should().NotContain("mark-favorite");
+    }
+
+    [Fact]
     public async Task OpenInjectsCapturedWindowTargetIntoViewModel()
     {
         var calls = new List<string>();
@@ -202,6 +267,7 @@ public sealed class FloatingPanelLauncherTests
 
         public Task MarkFavoriteUsedAsync(Guid id, DateTimeOffset usedAt, CancellationToken cancellationToken = default)
         {
+            calls.Add("mark-favorite");
             return Task.CompletedTask;
         }
     }
@@ -211,11 +277,16 @@ public sealed class FloatingPanelLauncherTests
         public DateTimeOffset Now => now;
     }
 
-    private sealed class FakeTextInsertionService(List<string> calls) : ITextInsertionService
+    private sealed class FakeTextInsertionService(List<string> calls, bool failInsertion = false) : ITextInsertionService
     {
         public Task InsertTextAsync(string text, CancellationToken cancellationToken = default)
         {
             calls.Add($"insert:{text}");
+            if (failInsertion)
+            {
+                throw new InvalidOperationException("insert failed");
+            }
+
             return Task.CompletedTask;
         }
     }

@@ -14,7 +14,7 @@ public sealed class FavoriteEditorViewModelTests
         };
 
         editor.IsValid.Should().BeFalse();
-        editor.ValidationMessage.Should().Be("Title is required.");
+        editor.ValidationMessage.Should().Be("请输入标题。");
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public sealed class FavoriteEditorViewModelTests
         };
 
         editor.IsValid.Should().BeFalse();
-        editor.ValidationMessage.Should().Be("Content is required.");
+        editor.ValidationMessage.Should().Be("请输入内容。");
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class FavoriteEditorViewModelTests
         };
 
         editor.IsValid.Should().BeFalse();
-        editor.ValidationMessage.Should().Be("Hotkey is invalid.");
+        editor.ValidationMessage.Should().Be("快捷键格式无效。");
     }
 
     [Theory]

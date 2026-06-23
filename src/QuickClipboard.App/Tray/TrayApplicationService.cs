@@ -115,16 +115,16 @@ public sealed class TrayApplicationService(
     private Forms.ContextMenuStrip CreateTrayMenu()
     {
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add(CreateMenuItem("Open Clipboard", (_, _) => OpenClipboard()));
+        menu.Items.Add(CreateMenuItem("打开剪贴板", (_, _) => OpenClipboard()));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(CreateMenuItem("Pause 10 minutes", (_, _) => PauseRecordingFor(TimeSpan.FromMinutes(10))));
-        menu.Items.Add(CreateMenuItem("Pause 1 hour", (_, _) => PauseRecordingFor(TimeSpan.FromHours(1))));
-        menu.Items.Add(CreateMenuItem("Pause until resumed", (_, _) => PauseRecordingIndefinitely()));
-        menu.Items.Add(CreateMenuItem("Resume Recording", (_, _) => ResumeRecording()));
+        menu.Items.Add(CreateMenuItem("暂停 10 分钟", (_, _) => PauseRecordingFor(TimeSpan.FromMinutes(10))));
+        menu.Items.Add(CreateMenuItem("暂停 1 小时", (_, _) => PauseRecordingFor(TimeSpan.FromHours(1))));
+        menu.Items.Add(CreateMenuItem("暂停直到手动恢复", (_, _) => PauseRecordingIndefinitely()));
+        menu.Items.Add(CreateMenuItem("恢复记录", (_, _) => ResumeRecording()));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(CreateMenuItem("Clear History", (_, _) => ClearHistory()));
+        menu.Items.Add(CreateMenuItem("清空历史", (_, _) => ClearHistory()));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(CreateMenuItem("Exit", (_, _) => Exit()));
+        menu.Items.Add(CreateMenuItem("退出", (_, _) => Exit()));
         return menu;
     }
 
