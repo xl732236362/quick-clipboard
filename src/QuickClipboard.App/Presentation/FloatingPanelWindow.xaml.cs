@@ -15,6 +15,7 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
     private readonly CloseOnceGate closeOnceGate = new();
     private HwndSource? hwndSource;
     private bool isClosed;
+    private bool isPositioning;
 
     public FloatingPanelWindow(
         FloatingPanelViewModel viewModel,
@@ -30,6 +31,7 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
 
         Loaded += OnLoaded;
         SourceInitialized += OnSourceInitialized;
+        SizeChanged += OnSizeChanged;
         KeyDown += OnKeyDown;
         Deactivated += OnDeactivated;
         Closed += OnClosed;
@@ -48,17 +50,56 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
         {
             Debug.WriteLine($"FloatingPanelWindow refresh failed: {ex}");
         }
+
+        PositionPanel();
     }
 
     private void PositionPanel()
     {
-        Measure(new System.Windows.Size(Width, MaxHeight));
-        var panelSize = new System.Windows.Size(
-            ActualWidth > 0 ? ActualWidth : DesiredSize.Width,
-            ActualHeight > 0 ? ActualHeight : DesiredSize.Height);
-        var topLeft = panelPositionService.ClampPanelTopLeft(anchor, panelSize);
-        Left = topLeft.X;
-        Top = topLeft.Y;
+        if (isPositioning)
+        {
+            return;
+        }
+
+        isPositioning = true;
+        try
+        {
+            Measure(new System.Windows.Size(Width, MaxHeight));
+            var panelSize = new System.Windows.Size(
+                ActualWidth > 0 ? ActualWidth : DesiredSize.Width,
+                ActualHeight > 0 ? ActualHeight : DesiredSize.Height);
+            if (panelSize.Width <= 0 || panelSize.Height <= 0)
+            {
+                return;
+            }
+
+            var topLeft = panelPositionService.ClampPanelTopLeft(anchor, panelSize);
+            if (!AreClose(Left, topLeft.X))
+            {
+                Left = topLeft.X;
+            }
+
+            if (!AreClose(Top, topLeft.Y))
+            {
+                Top = topLeft.Y;
+            }
+        }
+        finally
+        {
+            isPositioning = false;
+        }
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        PositionPanel();
+    }
+
+    private static bool AreClose(double left, double right)
+    {
+        return !double.IsNaN(left)
+            && !double.IsNaN(right)
+            && Math.Abs(left - right) < 0.5;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -105,6 +146,7 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
         isClosed = true;
         Loaded -= OnLoaded;
         SourceInitialized -= OnSourceInitialized;
+        SizeChanged -= OnSizeChanged;
         KeyDown -= OnKeyDown;
         Deactivated -= OnDeactivated;
         Closed -= OnClosed;
