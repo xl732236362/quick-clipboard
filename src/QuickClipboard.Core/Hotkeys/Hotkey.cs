@@ -2,6 +2,25 @@ namespace QuickClipboard.Core.Hotkeys;
 
 public sealed record Hotkey(HotkeyModifiers Modifiers, string Key)
 {
+    private static readonly IReadOnlyDictionary<string, string> NamedKeys = new Dictionary<string, string>
+    {
+        ["SPACE"] = "Space",
+        ["ENTER"] = "Enter",
+        ["TAB"] = "Tab",
+        ["ESCAPE"] = "Escape",
+        ["BACKSPACE"] = "Backspace",
+        ["DELETE"] = "Delete",
+        ["INSERT"] = "Insert",
+        ["HOME"] = "Home",
+        ["END"] = "End",
+        ["PAGEUP"] = "PageUp",
+        ["PAGEDOWN"] = "PageDown",
+        ["UP"] = "Up",
+        ["DOWN"] = "Down",
+        ["LEFT"] = "Left",
+        ["RIGHT"] = "Right"
+    };
+
     public static bool TryParse(string? value, out Hotkey? hotkey)
     {
         hotkey = null;
@@ -36,20 +55,32 @@ public sealed record Hotkey(HotkeyModifiers Modifiers, string Key)
             modifiers |= modifier;
         }
 
-        var key = parts[^1].Trim().ToUpperInvariant();
-        var keyIsModifier = key switch
-        {
-            "CTRL" or "CONTROL" or "ALT" or "SHIFT" or "WIN" or "WINDOWS" => true,
-            _ => false
-        };
-
-        if (key.Length == 0 || keyIsModifier || modifiers == HotkeyModifiers.None)
+        if (modifiers == HotkeyModifiers.None || !TryNormalizeKey(parts[^1], out var key))
         {
             return false;
         }
 
         hotkey = new Hotkey(modifiers, key);
         return true;
+    }
+
+    private static bool TryNormalizeKey(string value, out string key)
+    {
+        key = string.Empty;
+        var normalized = value.Trim().ToUpperInvariant();
+        if (normalized.Length == 1 && (char.IsAsciiLetterUpper(normalized[0]) || char.IsAsciiDigit(normalized[0])))
+        {
+            key = normalized;
+            return true;
+        }
+
+        if (normalized.Length is >= 2 and <= 3 && normalized[0] == 'F' && int.TryParse(normalized[1..], out var functionKey) && functionKey is >= 1 and <= 24)
+        {
+            key = normalized;
+            return true;
+        }
+
+        return NamedKeys.TryGetValue(normalized, out key!);
     }
 
     public override string ToString()
@@ -75,7 +106,12 @@ public sealed record Hotkey(HotkeyModifiers Modifiers, string Key)
             parts.Add("Win");
         }
 
-        parts.Add(Key.ToUpperInvariant());
+        if (!TryNormalizeKey(Key, out var key))
+        {
+            key = Key;
+        }
+
+        parts.Add(key);
         return string.Join("+", parts);
     }
 }
