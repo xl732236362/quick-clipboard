@@ -160,10 +160,14 @@ public sealed class TrayApplicationService(
 
     private void OpenClipboard()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
         {
             floatingPanelLauncher.Open();
-        });
+            return;
+        }
+
+        dispatcher.Invoke(floatingPanelLauncher.Open);
     }
 
     private void PauseRecordingFor(TimeSpan duration)
