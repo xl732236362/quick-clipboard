@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using Application = System.Windows.Application;
+using Clipboard = System.Windows.Clipboard;
 
 namespace QuickClipboard.Infrastructure.Windows;
 
