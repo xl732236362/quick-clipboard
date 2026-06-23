@@ -8,49 +8,59 @@ public sealed class FavoriteHotkeyController(
     IGlobalHotkeyRegistrar hotkeyRegistrar,
     IClipboardRepository clipboardRepository,
     ITextInsertionService textInsertionService,
+    IHotkeyInputGate hotkeyInputGate,
     IClock clock)
 {
     private const string FavoriteHotkeyPrefix = "favorite:";
 
     private readonly HashSet<string> registeredFavoriteHotkeyIds = [];
+    private readonly SemaphoreSlim refreshLock = new(1, 1);
 
     public async Task RefreshFavoriteHotkeysAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var hotkeyId in registeredFavoriteHotkeyIds.ToArray())
+        await refreshLock.WaitAsync(cancellationToken);
+        try
         {
-            hotkeyRegistrar.Unregister(hotkeyId);
-            registeredFavoriteHotkeyIds.Remove(hotkeyId);
-        }
-
-        var favorites = await clipboardRepository.GetFavoritesAsync(cancellationToken);
-        foreach (var favorite in favorites)
-        {
-            if (string.IsNullOrWhiteSpace(favorite.Hotkey))
+            foreach (var hotkeyId in registeredFavoriteHotkeyIds.ToArray())
             {
-                continue;
+                hotkeyRegistrar.Unregister(hotkeyId);
+                registeredFavoriteHotkeyIds.Remove(hotkeyId);
             }
 
-            if (!Hotkey.TryParse(favorite.Hotkey, out var hotkey) || hotkey is null)
+            var favorites = await clipboardRepository.GetFavoritesAsync(cancellationToken);
+            foreach (var favorite in favorites)
             {
-                Debug.WriteLine($"Favorite hotkey '{favorite.Hotkey}' for '{favorite.Id}' could not be parsed.");
-                continue;
-            }
-
-            var hotkeyId = CreateFavoriteHotkeyId(favorite.Id);
-            try
-            {
-                if (!hotkeyRegistrar.Register(hotkeyId, hotkey))
+                if (string.IsNullOrWhiteSpace(favorite.Hotkey))
                 {
-                    Debug.WriteLine($"Favorite hotkey '{favorite.Hotkey}' for '{favorite.Id}' could not be registered.");
                     continue;
                 }
 
-                registeredFavoriteHotkeyIds.Add(hotkeyId);
+                if (!Hotkey.TryParse(favorite.Hotkey, out var hotkey) || hotkey is null)
+                {
+                    Debug.WriteLine($"Favorite hotkey '{favorite.Hotkey}' for '{favorite.Id}' could not be parsed.");
+                    continue;
+                }
+
+                var hotkeyId = CreateFavoriteHotkeyId(favorite.Id);
+                try
+                {
+                    if (!hotkeyRegistrar.Register(hotkeyId, hotkey))
+                    {
+                        Debug.WriteLine($"Favorite hotkey '{favorite.Hotkey}' for '{favorite.Id}' could not be registered.");
+                        continue;
+                    }
+
+                    registeredFavoriteHotkeyIds.Add(hotkeyId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Favorite hotkey registration failed for '{favorite.Id}': {ex}");
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Favorite hotkey registration failed for '{favorite.Id}': {ex}");
-            }
+        }
+        finally
+        {
+            refreshLock.Release();
         }
     }
 
@@ -66,6 +76,18 @@ public sealed class FavoriteHotkeyController(
         if (favorite is null)
         {
             return;
+        }
+
+        if (Hotkey.TryParse(favorite.Hotkey, out var hotkey) && hotkey is not null)
+        {
+            try
+            {
+                await hotkeyInputGate.WaitForModifiersReleasedAsync(hotkey.Modifiers, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Favorite hotkey input gate failed for '{favorite.Id}': {ex}");
+            }
         }
 
         await textInsertionService.InsertTextAsync(favorite.Content, cancellationToken);

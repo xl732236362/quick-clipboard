@@ -55,10 +55,23 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial uint SendInput(uint cInputs, [In] Input[] pInputs, int cbSize);
 
+    [LibraryImport("user32.dll")]
+    internal static partial short GetAsyncKeyState(int vKey);
+
     internal const uint INPUT_KEYBOARD = 1;
     internal const ushort KEYEVENTF_KEYUP = 0x0002;
+    internal const int VK_SHIFT = 0x10;
     internal const ushort VK_CONTROL = 0x11;
+    internal const int VK_MENU = 0x12;
     internal const ushort VK_V = 0x56;
+    internal const int VK_LWIN = 0x5B;
+    internal const int VK_RWIN = 0x5C;
+    internal const int VK_LSHIFT = 0xA0;
+    internal const int VK_RSHIFT = 0xA1;
+    internal const int VK_LCONTROL = 0xA2;
+    internal const int VK_RCONTROL = 0xA3;
+    internal const int VK_LMENU = 0xA4;
+    internal const int VK_RMENU = 0xA5;
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct Input
