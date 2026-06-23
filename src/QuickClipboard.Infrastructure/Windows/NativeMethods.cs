@@ -40,6 +40,38 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool UnregisterHotKey(IntPtr hWnd, int id);
 
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial uint SendInput(uint cInputs, [In] Input[] pInputs, int cbSize);
+
+    internal const uint INPUT_KEYBOARD = 1;
+    internal const ushort KEYEVENTF_KEYUP = 0x0002;
+    internal const ushort VK_CONTROL = 0x11;
+    internal const ushort VK_V = 0x56;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct Input
+    {
+        internal uint type;
+        internal InputUnion u;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct InputUnion
+    {
+        [FieldOffset(0)]
+        internal KeyboardInput ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct KeyboardInput
+    {
+        internal ushort wVk;
+        internal ushort wScan;
+        internal uint dwFlags;
+        internal uint time;
+        internal UIntPtr dwExtraInfo;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct GuiThreadInfo
     {
