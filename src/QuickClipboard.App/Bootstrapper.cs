@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using QuickClipboard.App.Presentation;
+using QuickClipboard.App.Presentation.ViewModels;
 using QuickClipboard.App.Tray;
 using QuickClipboard.Core.Clipboard;
 using QuickClipboard.Core.Services;
@@ -30,6 +32,16 @@ public static class Bootstrapper
         services.AddSingleton<PanelPositionService>();
         services.AddSingleton<TextInsertionService>();
         services.AddSingleton<ITextInsertionService>(provider => provider.GetRequiredService<TextInsertionService>());
+        services.AddTransient<FloatingPanelViewModel>();
+        services.AddSingleton<Func<FloatingPanelViewModel>>(provider =>
+            () => provider.GetRequiredService<FloatingPanelViewModel>());
+        services.AddSingleton<IPanelAnchorProvider, PanelAnchorProvider>();
+        services.AddSingleton<FloatingPanelLauncher>();
+        services.AddSingleton<Func<FloatingPanelViewModel, System.Windows.Rect, IFloatingPanelWindow>>(provider =>
+        {
+            var panelPositionService = provider.GetRequiredService<PanelPositionService>();
+            return (viewModel, anchor) => new FloatingPanelWindow(viewModel, panelPositionService, anchor);
+        });
         services.AddSingleton<TrayApplicationService>();
 
         return services.BuildServiceProvider(validateScopes: true);

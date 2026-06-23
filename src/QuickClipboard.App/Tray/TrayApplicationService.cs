@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using QuickClipboard.App.Presentation;
 using QuickClipboard.Core.Clipboard;
 using QuickClipboard.Core.Hotkeys;
 using QuickClipboard.Core.Models;
@@ -17,7 +18,8 @@ public sealed class TrayApplicationService(
     ClipboardCapturePolicy capturePolicy,
     IClipboardRepository clipboardRepository,
     ISettingsRepository settingsRepository,
-    IClock clock) : IDisposable
+    IClock clock,
+    FloatingPanelLauncher floatingPanelLauncher) : IDisposable
 {
     private const string PanelHotkeyId = "panel";
 
@@ -74,6 +76,7 @@ public sealed class TrayApplicationService(
 
         clipboardMonitor.TextCopied -= OnTextCopied;
         hotkeyService.HotkeyPressed -= OnHotkeyPressed;
+        floatingPanelLauncher.Close();
 
         clipboardMonitor.Dispose();
         hotkeyService.Dispose();
@@ -155,9 +158,12 @@ public sealed class TrayApplicationService(
         }
     }
 
-    private static void OpenClipboard()
+    private void OpenClipboard()
     {
-        Debug.WriteLine("Open Clipboard requested");
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            floatingPanelLauncher.Open();
+        });
     }
 
     private void PauseRecordingFor(TimeSpan duration)
