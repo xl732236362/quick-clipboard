@@ -44,6 +44,18 @@ public sealed class HotkeyTests
     }
 
     [Fact]
+    public void TryParse_NormalizesPaddedFunctionKey()
+    {
+        var success = Hotkey.TryParse("Ctrl+Alt+F01", out var hotkey);
+
+        success.Should().BeTrue();
+        hotkey.Should().NotBeNull();
+        hotkey!.Modifiers.Should().Be(HotkeyModifiers.Control | HotkeyModifiers.Alt);
+        hotkey.Key.Should().Be("F1");
+        hotkey.ToString().Should().Be("Ctrl+Alt+F1");
+    }
+
+    [Fact]
     public void TryParse_AcceptsSingleDigitKey()
     {
         var success = Hotkey.TryParse("Ctrl+Alt+1", out var hotkey);

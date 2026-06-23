@@ -76,7 +76,7 @@ public sealed record Hotkey(HotkeyModifiers Modifiers, string Key)
 
         if (normalized.Length is >= 2 and <= 3 && normalized[0] == 'F' && int.TryParse(normalized[1..], out var functionKey) && functionKey is >= 1 and <= 24)
         {
-            key = normalized;
+            key = $"F{functionKey}";
             return true;
         }
 
