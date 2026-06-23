@@ -140,7 +140,31 @@ public sealed class FavoriteHotkeyControllerTests
     }
 
     [Fact]
-    public async Task HandleFavoriteHotkeyPressedContinuesInsertingWhenInputGateFails()
+    public async Task HandleFavoriteHotkeyPressedSkipsInsertionWhenInputGateTimesOut()
+    {
+        var favorite = CreateFavorite("Greeting", "hello", "Ctrl+Alt+1");
+        var repository = new FakeClipboardRepository([favorite]);
+        var insertion = new FakeTextInsertionService();
+        var gate = new FakeHotkeyInputGate
+        {
+            Released = false
+        };
+        var controller = new FavoriteHotkeyController(
+            new FakeHotkeyRegistrar(),
+            repository,
+            insertion,
+            gate,
+            new FakeClock(Now));
+
+        await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
+
+        gate.WaitCalls.Should().Equal(HotkeyModifiers.Control | HotkeyModifiers.Alt);
+        insertion.InsertedText.Should().BeEmpty();
+        repository.MarkedFavoriteIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleFavoriteHotkeyPressedSkipsInsertionWhenInputGateFails()
     {
         var favorite = CreateFavorite("Greeting", "hello", "Ctrl+Alt+1");
         var repository = new FakeClipboardRepository([favorite]);
@@ -158,8 +182,32 @@ public sealed class FavoriteHotkeyControllerTests
 
         await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
 
-        insertion.InsertedText.Should().Equal("hello");
-        repository.MarkedFavoriteIds.Should().Equal(favorite.Id);
+        insertion.InsertedText.Should().BeEmpty();
+        repository.MarkedFavoriteIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleFavoriteHotkeyPressedPropagatesCancellationFromInputGate()
+    {
+        var favorite = CreateFavorite("Greeting", "hello", "Ctrl+Alt+1");
+        var repository = new FakeClipboardRepository([favorite]);
+        var insertion = new FakeTextInsertionService();
+        var gate = new FakeHotkeyInputGate
+        {
+            Exception = new OperationCanceledException("cancelled")
+        };
+        var controller = new FavoriteHotkeyController(
+            new FakeHotkeyRegistrar(),
+            repository,
+            insertion,
+            gate,
+            new FakeClock(Now));
+
+        var act = () => controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        insertion.InsertedText.Should().BeEmpty();
+        repository.MarkedFavoriteIds.Should().BeEmpty();
     }
 
     [Fact]
@@ -318,9 +366,12 @@ public sealed class FavoriteHotkeyControllerTests
     private sealed class FakeHotkeyInputGate(List<string>? operations = null) : IHotkeyInputGate
     {
         public Exception? Exception { get; init; }
+        public bool Released { get; init; } = true;
         public List<HotkeyModifiers> WaitCalls { get; } = [];
 
-        public Task WaitForModifiersReleasedAsync(HotkeyModifiers modifiers, CancellationToken cancellationToken = default)
+        public Task<bool> WaitForModifiersReleasedAsync(
+            HotkeyModifiers modifiers,
+            CancellationToken cancellationToken = default)
         {
             WaitCalls.Add(modifiers);
             operations?.Add($"gate:{modifiers}");
@@ -330,7 +381,7 @@ public sealed class FavoriteHotkeyControllerTests
                 throw Exception;
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult(Released);
         }
     }
 

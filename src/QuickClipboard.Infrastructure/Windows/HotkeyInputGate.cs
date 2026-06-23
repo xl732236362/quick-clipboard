@@ -5,23 +5,44 @@ namespace QuickClipboard.Infrastructure.Windows;
 
 public sealed class HotkeyInputGate : IHotkeyInputGate
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(300);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(15);
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan DefaultPollInterval = TimeSpan.FromMilliseconds(15);
 
-    public async Task WaitForModifiersReleasedAsync(
+    private readonly Func<HotkeyModifiers, bool> anyModifierPressed;
+    private readonly TimeSpan timeout;
+    private readonly TimeSpan pollInterval;
+
+    public HotkeyInputGate()
+        : this(AnyModifierPressed, DefaultTimeout, DefaultPollInterval)
+    {
+    }
+
+    internal HotkeyInputGate(
+        Func<HotkeyModifiers, bool> anyModifierPressed,
+        TimeSpan timeout,
+        TimeSpan pollInterval)
+    {
+        this.anyModifierPressed = anyModifierPressed;
+        this.timeout = timeout;
+        this.pollInterval = pollInterval;
+    }
+
+    public async Task<bool> WaitForModifiersReleasedAsync(
         HotkeyModifiers modifiers,
         CancellationToken cancellationToken = default)
     {
         if (modifiers == HotkeyModifiers.None)
         {
-            return;
+            return true;
         }
 
-        var deadline = DateTimeOffset.UtcNow + Timeout;
-        while (DateTimeOffset.UtcNow < deadline && AnyModifierPressed(modifiers))
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        while (DateTimeOffset.UtcNow < deadline && anyModifierPressed(modifiers))
         {
-            await Task.Delay(PollInterval, cancellationToken);
+            await Task.Delay(pollInterval, cancellationToken);
         }
+
+        return !anyModifierPressed(modifiers);
     }
 
     private static bool AnyModifierPressed(HotkeyModifiers modifiers)

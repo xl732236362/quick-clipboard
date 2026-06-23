@@ -80,13 +80,25 @@ public sealed class FavoriteHotkeyController(
 
         if (Hotkey.TryParse(favorite.Hotkey, out var hotkey) && hotkey is not null)
         {
+            bool modifiersReleased;
             try
             {
-                await hotkeyInputGate.WaitForModifiersReleasedAsync(hotkey.Modifiers, cancellationToken);
+                modifiersReleased = await hotkeyInputGate.WaitForModifiersReleasedAsync(hotkey.Modifiers, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Favorite hotkey input gate failed for '{favorite.Id}': {ex}");
+                return;
+            }
+
+            if (!modifiersReleased)
+            {
+                Debug.WriteLine($"Favorite hotkey input gate timed out for '{favorite.Id}'.");
+                return;
             }
         }
 
