@@ -1,6 +1,7 @@
 using FluentAssertions;
 using QuickClipboard.Infrastructure.Windows;
 using Forms = System.Windows.Forms;
+using Point = System.Windows.Point;
 using Rect = System.Windows.Rect;
 using Size = System.Windows.Size;
 
@@ -9,35 +10,79 @@ namespace QuickClipboard.Infrastructure.Tests;
 public sealed class PanelPositionServiceTests
 {
     [Fact]
-    public void ClampPanelTopLeft_PlacesPanelBelowAnchorWhenItFits()
+    public void CalculateAdaptivePanelTopLeft_PlacesPanelBelowAnchorWhenItFits()
     {
-        var workingArea = GetPrimaryWorkingAreaInDeviceIndependentPixels();
-        var service = new PanelPositionService();
-        var anchor = new Rect(workingArea.Left + 100, workingArea.Top + 100, 4, 16);
-        var panelSize = new Size(420, 300);
+        var workingArea = new Rect(0, 0, 500, 400);
+        var anchor = new Rect(100, 100, 4, 16);
+        var panelSize = new Size(200, 100);
 
-        var topLeft = service.ClampPanelTopLeft(anchor, panelSize);
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
 
-        topLeft.X.Should().Be(anchor.Left);
-        topLeft.Y.Should().Be(anchor.Bottom);
+        topLeft.Should().Be(new Point(100, 124));
     }
 
     [Fact]
-    public void ClampPanelTopLeft_PlacesPanelAboveAnchorWhenBottomWouldOverflow()
+    public void CalculateAdaptivePanelTopLeft_PlacesPanelAboveAnchorWhenBottomWouldOverflow()
     {
-        var workingArea = GetPrimaryWorkingAreaInDeviceIndependentPixels();
-        var service = new PanelPositionService();
-        var panelSize = new Size(420, 300);
-        var anchor = new Rect(workingArea.Left + 100, workingArea.Bottom - 20, 4, 16);
+        var workingArea = new Rect(0, 0, 500, 400);
+        var anchor = new Rect(100, 360, 4, 16);
+        var panelSize = new Size(200, 100);
 
-        var topLeft = service.ClampPanelTopLeft(anchor, panelSize);
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
 
-        topLeft.X.Should().Be(anchor.Left);
-        topLeft.Y.Should().Be(anchor.Top - panelSize.Height);
+        topLeft.Should().Be(new Point(100, 252));
     }
 
     [Fact]
-    public void ClampPanelTopLeft_ClampsPanelInsideWorkingArea()
+    public void CalculateAdaptivePanelTopLeft_PlacesPanelRightOfAnchorWhenVerticalCandidatesDoNotFit()
+    {
+        var workingArea = new Rect(0, 0, 600, 300);
+        var anchor = new Rect(200, 40, 4, 100);
+        var panelSize = new Size(160, 220);
+
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
+
+        topLeft.Should().Be(new Point(212, 40));
+    }
+
+    [Fact]
+    public void CalculateAdaptivePanelTopLeft_PlacesPanelLeftOfAnchorWhenRightWouldOverflow()
+    {
+        var workingArea = new Rect(0, 0, 380, 300);
+        var anchor = new Rect(300, 40, 4, 100);
+        var panelSize = new Size(160, 220);
+
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
+
+        topLeft.Should().Be(new Point(132, 40));
+    }
+
+    [Fact]
+    public void CalculateAdaptivePanelTopLeft_ClampsPreferredCandidateWhenNoCandidateFits()
+    {
+        var workingArea = new Rect(0, 0, 300, 200);
+        var anchor = new Rect(250, 100, 4, 60);
+        var panelSize = new Size(220, 180);
+
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
+
+        topLeft.Should().Be(new Point(80, 20));
+    }
+
+    [Fact]
+    public void CalculateAdaptivePanelTopLeft_UsesWorkingAreaStartWhenPanelIsOversized()
+    {
+        var workingArea = new Rect(10, 20, 200, 150);
+        var anchor = new Rect(30, 50, 4, 16);
+        var oversizedPanel = new Size(300, 200);
+
+        var topLeft = PanelPositionService.CalculateAdaptivePanelTopLeft(anchor, oversizedPanel, workingArea);
+
+        topLeft.Should().Be(new Point(10, 20));
+    }
+
+    [Fact]
+    public void ClampPanelTopLeft_KeepsPanelInsidePrimaryWorkingArea()
     {
         var workingArea = GetPrimaryWorkingAreaInDeviceIndependentPixels();
         var service = new PanelPositionService();
@@ -46,22 +91,8 @@ public sealed class PanelPositionServiceTests
 
         var topLeft = service.ClampPanelTopLeft(anchor, panelSize);
 
-        topLeft.X.Should().BeInRange(workingArea.Left, workingArea.Right - panelSize.Width);
-        topLeft.Y.Should().BeInRange(workingArea.Top, workingArea.Bottom - panelSize.Height);
-    }
-
-    [Fact]
-    public void ClampPanelTopLeft_UsesWorkingAreaTopLeftWhenPanelIsOversized()
-    {
-        var workingArea = GetPrimaryWorkingAreaInDeviceIndependentPixels();
-        var service = new PanelPositionService();
-        var anchor = new Rect(workingArea.Left + 100, workingArea.Top + 100, 4, 16);
-        var oversizedPanel = new Size(workingArea.Width * 2, workingArea.Height * 2);
-
-        var topLeft = service.ClampPanelTopLeft(anchor, oversizedPanel);
-
-        topLeft.X.Should().Be(workingArea.Left);
-        topLeft.Y.Should().Be(workingArea.Top);
+        topLeft.X.Should().BeInRange(workingArea.Left, Math.Max(workingArea.Left, workingArea.Right - panelSize.Width));
+        topLeft.Y.Should().BeInRange(workingArea.Top, Math.Max(workingArea.Top, workingArea.Bottom - panelSize.Height));
     }
 
     private static Rect GetPrimaryWorkingAreaInDeviceIndependentPixels()

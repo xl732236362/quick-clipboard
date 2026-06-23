@@ -15,6 +15,7 @@ namespace QuickClipboard.Infrastructure.Windows;
 public sealed class PanelPositionService
 {
     private const double FallbackAnchorSize = 8;
+    private const double PanelGap = 8;
     private const double DefaultDpi = 96;
     private const int TextPattern2Id = 10024;
 
@@ -40,26 +41,51 @@ public sealed class PanelPositionService
 
     public Point ClampPanelTopLeft(Rect anchor, Size panelSize)
     {
+        var workingArea = GetWorkingAreaForAnchor(anchor);
+        return CalculateAdaptivePanelTopLeft(anchor, panelSize, workingArea);
+    }
+
+    internal static Point CalculateAdaptivePanelTopLeft(Rect anchor, Size panelSize, Rect workingArea)
+    {
+        var below = new Point(anchor.Left, anchor.Bottom + PanelGap);
+        var candidates = new[]
+        {
+            below,
+            new Point(anchor.Left, anchor.Top - PanelGap - panelSize.Height),
+            new Point(anchor.Right + PanelGap, anchor.Top),
+            new Point(anchor.Left - PanelGap - panelSize.Width, anchor.Top)
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (PanelFits(candidate, panelSize, workingArea))
+            {
+                return candidate;
+            }
+        }
+
+        return new Point(
+            ClampToWorkingAxis(below.X, panelSize.Width, workingArea.Left, workingArea.Right),
+            ClampToWorkingAxis(below.Y, panelSize.Height, workingArea.Top, workingArea.Bottom));
+    }
+
+    private static Rect GetWorkingAreaForAnchor(Rect anchor)
+    {
         var anchorPixels = DeviceIndependentPointToScreenPixels(new Point(anchor.Left, anchor.Top));
         var screen = Forms.Screen.FromPoint(new System.Drawing.Point((int)anchorPixels.X, (int)anchorPixels.Y));
-        var workingArea = ScreenPixelsToDeviceIndependentRect(
+        return ScreenPixelsToDeviceIndependentRect(
             screen.WorkingArea.Left,
             screen.WorkingArea.Top,
             screen.WorkingArea.Width,
             screen.WorkingArea.Height);
+    }
 
-        var left = anchor.Left;
-        var top = anchor.Bottom;
-
-        if (top + panelSize.Height > workingArea.Bottom)
-        {
-            top = anchor.Top - panelSize.Height;
-        }
-
-        left = ClampToWorkingAxis(left, panelSize.Width, workingArea.Left, workingArea.Right);
-        top = ClampToWorkingAxis(top, panelSize.Height, workingArea.Top, workingArea.Bottom);
-
-        return new Point(left, top);
+    private static bool PanelFits(Point topLeft, Size panelSize, Rect workingArea)
+    {
+        return topLeft.X >= workingArea.Left
+            && topLeft.Y >= workingArea.Top
+            && topLeft.X + panelSize.Width <= workingArea.Right
+            && topLeft.Y + panelSize.Height <= workingArea.Bottom;
     }
 
     private static bool TryGetAutomationCaretAnchor(out Rect anchor)
