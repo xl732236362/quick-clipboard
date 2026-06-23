@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 using System.Windows.Interop;
 using Forms = System.Windows.Forms;
 using Point = System.Windows.Point;
@@ -13,6 +15,8 @@ namespace QuickClipboard.Infrastructure.Windows;
 public sealed class PanelPositionService
 {
     private const double FallbackAnchorSize = 8;
+    private const double DefaultDpi = 96;
+    private const int TextPattern2Id = 10024;
 
     public Rect GetPreferredAnchor()
     {
@@ -27,13 +31,22 @@ public sealed class PanelPositionService
         }
 
         var mousePosition = Forms.Control.MousePosition;
-        return new Rect(mousePosition.X, mousePosition.Y, FallbackAnchorSize, FallbackAnchorSize);
+        return ScreenPixelsToDeviceIndependentRect(
+            mousePosition.X,
+            mousePosition.Y,
+            FallbackAnchorSize,
+            FallbackAnchorSize);
     }
 
     public Point ClampPanelTopLeft(Rect anchor, Size panelSize)
     {
-        var screen = Forms.Screen.FromPoint(new System.Drawing.Point((int)anchor.Left, (int)anchor.Top));
-        var workingArea = screen.WorkingArea;
+        var anchorPixels = DeviceIndependentPointToScreenPixels(new Point(anchor.Left, anchor.Top));
+        var screen = Forms.Screen.FromPoint(new System.Drawing.Point((int)anchorPixels.X, (int)anchorPixels.Y));
+        var workingArea = ScreenPixelsToDeviceIndependentRect(
+            screen.WorkingArea.Left,
+            screen.WorkingArea.Top,
+            screen.WorkingArea.Width,
+            screen.WorkingArea.Height);
 
         var left = anchor.Left;
         var top = anchor.Bottom;
@@ -43,8 +56,8 @@ public sealed class PanelPositionService
             top = anchor.Top - panelSize.Height;
         }
 
-        left = Math.Clamp(left, workingArea.Left, workingArea.Right - panelSize.Width);
-        top = Math.Clamp(top, workingArea.Top, workingArea.Bottom - panelSize.Height);
+        left = ClampToWorkingAxis(left, panelSize.Width, workingArea.Left, workingArea.Right);
+        top = ClampToWorkingAxis(top, panelSize.Height, workingArea.Top, workingArea.Bottom);
 
         return new Point(left, top);
     }
@@ -61,22 +74,28 @@ public sealed class PanelPositionService
                 return false;
             }
 
-            if (!focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out var pattern)
-                || pattern is not TextPattern textPattern)
+            var textPattern2 = AutomationPattern.LookupById(TextPattern2Id);
+            if (textPattern2 is null || !focusedElement.TryGetCurrentPattern(textPattern2, out var pattern))
             {
                 return false;
             }
 
-            var ranges = textPattern.GetSelection();
-            foreach (var range in ranges)
+            var range = GetCaretRange(pattern);
+            if (range is null)
             {
-                foreach (var rectangle in range.GetBoundingRectangles())
+                return false;
+            }
+
+            foreach (var rectangle in range.GetBoundingRectangles())
+            {
+                if (rectangle.Width > 0 && rectangle.Height > 0)
                 {
-                    if (rectangle.Width > 0 && rectangle.Height > 0)
-                    {
-                        anchor = rectangle;
-                        return true;
-                    }
+                    anchor = ScreenPixelsToDeviceIndependentRect(
+                        rectangle.Left,
+                        rectangle.Top,
+                        rectangle.Width,
+                        rectangle.Height);
+                    return true;
                 }
             }
         }
@@ -92,8 +111,27 @@ public sealed class PanelPositionService
         {
             Debug.WriteLine($"PanelPositionService UI Automation caret lookup failed: {ex}");
         }
+        catch (TargetInvocationException ex) when (ex.InnerException is COMException or InvalidOperationException)
+        {
+            Debug.WriteLine($"PanelPositionService UI Automation caret lookup failed: {ex.InnerException}");
+        }
 
         return false;
+    }
+
+    private static TextPatternRange? GetCaretRange(object textPattern2)
+    {
+        var method = textPattern2.GetType().GetMethod(
+            "GetCaretRange",
+            BindingFlags.Instance | BindingFlags.Public);
+
+        if (method is null)
+        {
+            return null;
+        }
+
+        object?[] parameters = [false];
+        return method.Invoke(textPattern2, parameters) as TextPatternRange;
     }
 
     private static bool TryGetGuiThreadCaretAnchor(out Rect anchor)
@@ -147,18 +185,63 @@ public sealed class PanelPositionService
         return true;
     }
 
-    private static Rect ScreenPixelsToDeviceIndependentRect(double left, double top, double width, double height)
+    private static double ClampToWorkingAxis(double value, double panelLength, double workingStart, double workingEnd)
     {
-        var source = PresentationSource.CurrentSources.OfType<HwndSource>().FirstOrDefault();
-        if (source?.CompositionTarget is null)
+        var maxStart = workingEnd - panelLength;
+        if (maxStart < workingStart)
         {
-            // Without a WPF presentation source, DPI is unknown; use screen pixels as a close first pass.
-            return new Rect(left, top, width, height);
+            return workingStart;
         }
 
-        var transform = source.CompositionTarget.TransformFromDevice;
+        return Math.Clamp(value, workingStart, maxStart);
+    }
+
+    private static Rect ScreenPixelsToDeviceIndependentRect(double left, double top, double width, double height)
+    {
+        var transform = GetTransformFromDevice();
         var topLeft = transform.Transform(new Point(left, top));
         var bottomRight = transform.Transform(new Point(left + width, top + height));
         return new Rect(topLeft, bottomRight);
+    }
+
+    private static Point DeviceIndependentPointToScreenPixels(Point point)
+    {
+        return GetTransformToDevice().Transform(point);
+    }
+
+    private static System.Windows.Media.Matrix GetTransformFromDevice()
+    {
+        var source = PresentationSource.CurrentSources.OfType<HwndSource>().FirstOrDefault();
+        if (source?.CompositionTarget is not null)
+        {
+            return source.CompositionTarget.TransformFromDevice;
+        }
+
+        // Without a WPF presentation source, per-monitor DPI is unknown; system DPI is a best-effort fallback.
+        var scale = GetSystemDpiScale();
+        var matrix = System.Windows.Media.Matrix.Identity;
+        matrix.Scale(1 / scale, 1 / scale);
+        return matrix;
+    }
+
+    private static System.Windows.Media.Matrix GetTransformToDevice()
+    {
+        var source = PresentationSource.CurrentSources.OfType<HwndSource>().FirstOrDefault();
+        if (source?.CompositionTarget is not null)
+        {
+            return source.CompositionTarget.TransformToDevice;
+        }
+
+        // Without a WPF presentation source, per-monitor DPI is unknown; system DPI is a best-effort fallback.
+        var scale = GetSystemDpiScale();
+        var matrix = System.Windows.Media.Matrix.Identity;
+        matrix.Scale(scale, scale);
+        return matrix;
+    }
+
+    private static double GetSystemDpiScale()
+    {
+        var dpi = NativeMethods.GetDpiForSystem();
+        return dpi > 0 ? dpi / DefaultDpi : 1;
     }
 }

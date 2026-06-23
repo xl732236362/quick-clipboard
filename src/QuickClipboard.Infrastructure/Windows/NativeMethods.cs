@@ -21,6 +21,9 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ClientToScreen(IntPtr hWnd, ref NativePoint point);
 
+    [LibraryImport("user32.dll")]
+    internal static partial uint GetDpiForSystem();
+
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool AddClipboardFormatListener(IntPtr hwnd);
