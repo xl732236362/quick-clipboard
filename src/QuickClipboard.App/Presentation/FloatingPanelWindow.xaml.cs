@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using QuickClipboard.App.Presentation.ViewModels;
@@ -33,8 +34,20 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        await Dispatcher.InvokeAsync(async () => await viewModel.RefreshCommand.ExecuteAsync(null));
+        PositionPanel();
 
+        try
+        {
+            await viewModel.RefreshCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"FloatingPanelWindow refresh failed: {ex}");
+        }
+    }
+
+    private void PositionPanel()
+    {
         Measure(new System.Windows.Size(Width, MaxHeight));
         var panelSize = new System.Windows.Size(
             ActualWidth > 0 ? ActualWidth : DesiredSize.Width,

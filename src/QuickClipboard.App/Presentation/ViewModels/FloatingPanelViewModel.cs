@@ -40,6 +40,7 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     public IAsyncRelayCommand<ClipboardItemViewModel> AddHistoryToFavoritesCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> DeleteHistoryCommand { get; }
     public IAsyncRelayCommand<FavoriteItemViewModel> DeleteFavoriteCommand { get; }
+    public Func<CancellationToken, Task> RestorePasteTarget { get; set; } = _ => Task.CompletedTask;
 
     public event EventHandler? CloseRequested;
 
@@ -68,9 +69,9 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
             return;
         }
 
+        await PreparePasteTargetAsync(cancellationToken);
         await textInsertionService.InsertTextAsync(item.Content, cancellationToken);
         await clipboardRepository.MarkClipboardItemUsedAsync(item.Id, clock.Now, cancellationToken);
-        CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task PasteFavoriteAsync(FavoriteItemViewModel? item, CancellationToken cancellationToken)
@@ -80,9 +81,9 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
             return;
         }
 
+        await PreparePasteTargetAsync(cancellationToken);
         await textInsertionService.InsertTextAsync(item.Content, cancellationToken);
         await clipboardRepository.MarkFavoriteUsedAsync(item.Id, clock.Now, cancellationToken);
-        CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task AddHistoryToFavoritesAsync(ClipboardItemViewModel? item, CancellationToken cancellationToken)
@@ -133,6 +134,12 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
     private int GetNextFavoriteSortOrder()
     {
         return FavoriteItems.Count == 0 ? 1 : FavoriteItems.Max(item => item.SortOrder) + 1;
+    }
+
+    private async Task PreparePasteTargetAsync(CancellationToken cancellationToken)
+    {
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+        await RestorePasteTarget(cancellationToken);
     }
 
     private static string CreateFavoriteTitle(string content)

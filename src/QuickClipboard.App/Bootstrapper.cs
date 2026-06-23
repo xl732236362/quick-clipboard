@@ -30,6 +30,7 @@ public static class Bootstrapper
         services.AddSingleton<ClipboardMonitor>();
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<PanelPositionService>();
+        services.AddSingleton<IForegroundWindowRestorer, ForegroundWindowRestorer>();
         services.AddSingleton<TextInsertionService>();
         services.AddSingleton<ITextInsertionService>(provider => provider.GetRequiredService<TextInsertionService>());
         services.AddTransient<FloatingPanelViewModel>();
