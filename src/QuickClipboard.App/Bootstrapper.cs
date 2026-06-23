@@ -29,11 +29,22 @@ public static class Bootstrapper
         services.AddSingleton<IClock, WindowsClock>();
         services.AddSingleton<ClipboardMonitor>();
         services.AddSingleton<GlobalHotkeyService>();
+        services.AddSingleton<IGlobalHotkeyRegistrar>(provider => provider.GetRequiredService<GlobalHotkeyService>());
         services.AddSingleton<PanelPositionService>();
         services.AddSingleton<IForegroundWindowRestorer, ForegroundWindowRestorer>();
         services.AddSingleton<TextInsertionService>();
         services.AddSingleton<ITextInsertionService>(provider => provider.GetRequiredService<TextInsertionService>());
-        services.AddTransient<FloatingPanelViewModel>();
+        services.AddSingleton<FavoriteHotkeyController>();
+        services.AddTransient(provider =>
+        {
+            var viewModel = new FloatingPanelViewModel(
+                provider.GetRequiredService<IClipboardRepository>(),
+                provider.GetRequiredService<IClock>(),
+                provider.GetRequiredService<ITextInsertionService>());
+            viewModel.FavoriteHotkeysChangedAsync = cancellationToken =>
+                provider.GetRequiredService<TrayApplicationService>().RefreshFavoriteHotkeysAsync(cancellationToken);
+            return viewModel;
+        });
         services.AddSingleton<Func<FloatingPanelViewModel>>(provider =>
             () => provider.GetRequiredService<FloatingPanelViewModel>());
         services.AddSingleton<IPanelAnchorProvider, PanelAnchorProvider>();

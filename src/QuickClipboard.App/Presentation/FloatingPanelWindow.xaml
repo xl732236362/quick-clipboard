@@ -46,6 +46,16 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="PanelEditorTextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="Margin" Value="0,3,0,8" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Foreground" Value="{StaticResource PanelTextBrush}" />
+            <Setter Property="Background" Value="#292929" />
+            <Setter Property="BorderBrush" Value="#444444" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{StaticResource PanelTextBrush}" />
+        </Style>
     </Window.Resources>
 
     <Border Background="{StaticResource PanelBackgroundBrush}"
@@ -101,46 +111,114 @@
                 </TabItem>
 
                 <TabItem Header="Favorites">
-                    <ListBox ItemsSource="{Binding FavoriteItems}"
-                             ItemContainerStyle="{StaticResource PanelListBoxItemStyle}"
-                             Style="{StaticResource PanelListBoxStyle}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:FavoriteItemViewModel}">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top">
+                            <Button HorizontalAlignment="Left"
+                                    Command="{Binding NewFavoriteCommand}"
+                                    Content="New"
+                                    Style="{StaticResource PanelActionButtonStyle}" />
 
-                                    <TextBlock Grid.Row="0"
-                                               FontWeight="SemiBold"
-                                               Style="{StaticResource PanelTextBlockStyle}"
-                                               Text="{Binding Title}" />
-                                    <TextBlock Grid.Row="1"
-                                               Margin="0,4,0,0"
-                                               Style="{StaticResource PanelTextBlockStyle}"
-                                               Text="{Binding Preview}" />
-                                    <TextBlock Grid.Row="2"
-                                               Margin="0,4,0,8"
+                            <Border Margin="0,8,0,10"
+                                    Padding="10"
+                                    Background="#242424"
+                                    BorderBrush="#444444"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <Border.Style>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FavoriteEditor}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel DataContext="{Binding FavoriteEditor}">
+                                    <TextBlock FontSize="11"
+                                               Style="{StaticResource PanelMutedTextBlockStyle}"
+                                               Text="Title" />
+                                    <TextBox Style="{StaticResource PanelEditorTextBoxStyle}"
+                                             Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock FontSize="11"
+                                               Style="{StaticResource PanelMutedTextBlockStyle}"
+                                               Text="Content" />
+                                    <TextBox AcceptsReturn="True"
+                                             MaxHeight="120"
+                                             MinHeight="72"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Style="{StaticResource PanelEditorTextBoxStyle}"
+                                             Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock FontSize="11"
+                                               Style="{StaticResource PanelMutedTextBlockStyle}"
+                                               Text="Hotkey" />
+                                    <TextBox Style="{StaticResource PanelEditorTextBoxStyle}"
+                                             Text="{Binding Hotkey, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,0,0,8"
                                                FontSize="11"
                                                Style="{StaticResource PanelMutedTextBlockStyle}"
-                                               Text="{Binding Hotkey, TargetNullValue=No hotkey, FallbackValue=No hotkey}" />
-                                    <StackPanel Grid.Row="3" Orientation="Horizontal">
-                                        <Button Command="{Binding DataContext.PasteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                CommandParameter="{Binding}"
-                                                Content="Paste"
+                                               Text="{Binding ValidationMessage}" />
+                                    <StackPanel DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                Orientation="Horizontal">
+                                        <Button Command="{Binding SaveFavoriteCommand}"
+                                                Content="Save"
                                                 Style="{StaticResource PanelActionButtonStyle}" />
-                                        <Button Command="{Binding DataContext.DeleteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                CommandParameter="{Binding}"
-                                                Content="Delete"
+                                        <Button Command="{Binding CancelFavoriteEditCommand}"
+                                                Content="Cancel"
                                                 Style="{StaticResource PanelActionButtonStyle}" />
                                     </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <ListBox ItemsSource="{Binding FavoriteItems}"
+                                 ItemContainerStyle="{StaticResource PanelListBoxItemStyle}"
+                                 Style="{StaticResource PanelListBoxStyle}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:FavoriteItemViewModel}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0"
+                                                   FontWeight="SemiBold"
+                                                   Style="{StaticResource PanelTextBlockStyle}"
+                                                   Text="{Binding Title}" />
+                                        <TextBlock Grid.Row="1"
+                                                   Margin="0,4,0,0"
+                                                   Style="{StaticResource PanelTextBlockStyle}"
+                                                   Text="{Binding Preview}" />
+                                        <TextBlock Grid.Row="2"
+                                                   Margin="0,4,0,8"
+                                                   FontSize="11"
+                                                   Style="{StaticResource PanelMutedTextBlockStyle}"
+                                                   Text="{Binding Hotkey, TargetNullValue=No hotkey, FallbackValue=No hotkey}" />
+                                        <StackPanel Grid.Row="3" Orientation="Horizontal">
+                                            <Button Command="{Binding DataContext.PasteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="Paste"
+                                                    Style="{StaticResource PanelActionButtonStyle}" />
+                                            <Button Command="{Binding DataContext.EditFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="Edit"
+                                                    Style="{StaticResource PanelActionButtonStyle}" />
+                                            <Button Command="{Binding DataContext.DeleteFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="Delete"
+                                                    Style="{StaticResource PanelActionButtonStyle}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
                 </TabItem>
             </TabControl>
 

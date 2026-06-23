@@ -19,6 +19,7 @@ public sealed class TrayApplicationService(
     IClipboardRepository clipboardRepository,
     ISettingsRepository settingsRepository,
     IClock clock,
+    FavoriteHotkeyController favoriteHotkeyController,
     FloatingPanelLauncher floatingPanelLauncher) : IDisposable
 {
     private const string PanelHotkeyId = "panel";
@@ -60,6 +61,7 @@ public sealed class TrayApplicationService(
 
         CreateTrayIcon();
         RegisterPanelHotkey(_settings);
+        await RefreshFavoriteHotkeysAsync(cancellationToken);
 
         clipboardMonitor.TextCopied += OnTextCopied;
         clipboardMonitor.Start();
@@ -89,6 +91,12 @@ public sealed class TrayApplicationService(
         }
 
         _disposed = true;
+    }
+
+    public Task RefreshFavoriteHotkeysAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        return favoriteHotkeyController.RefreshFavoriteHotkeysAsync(cancellationToken);
     }
 
     private void CreateTrayIcon()
@@ -155,6 +163,14 @@ public sealed class TrayApplicationService(
         if (string.Equals(hotkeyId, PanelHotkeyId, StringComparison.Ordinal))
         {
             OpenClipboard();
+            return;
+        }
+
+        if (favoriteHotkeyController.IsFavoriteHotkeyId(hotkeyId))
+        {
+            FireAndForget(
+                favoriteHotkeyController.HandleHotkeyPressedAsync(hotkeyId),
+                "Failed to insert favorite hotkey text.");
         }
     }
 

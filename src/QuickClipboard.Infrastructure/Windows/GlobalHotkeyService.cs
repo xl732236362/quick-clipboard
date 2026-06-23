@@ -4,11 +4,12 @@ using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Windows.Interop;
 using QuickClipboard.Core.Hotkeys;
+using QuickClipboard.Core.Services;
 using Application = System.Windows.Application;
 
 namespace QuickClipboard.Infrastructure.Windows;
 
-public sealed class GlobalHotkeyService : IDisposable
+public sealed class GlobalHotkeyService : IGlobalHotkeyRegistrar, IDisposable
 {
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;

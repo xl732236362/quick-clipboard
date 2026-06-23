@@ -30,19 +30,56 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
         AddHistoryToFavoritesCommand = new AsyncRelayCommand<ClipboardItemViewModel>(AddHistoryToFavoritesAsync);
         DeleteHistoryCommand = new AsyncRelayCommand<ClipboardItemViewModel>(DeleteHistoryAsync);
         DeleteFavoriteCommand = new AsyncRelayCommand<FavoriteItemViewModel>(DeleteFavoriteAsync);
+        NewFavoriteCommand = new RelayCommand(StartNewFavorite);
+        EditFavoriteCommand = new RelayCommand<FavoriteItemViewModel>(StartEditFavorite);
+        SaveFavoriteCommand = new AsyncRelayCommand(SaveFavoriteAsync, CanSaveFavorite);
+        CancelFavoriteEditCommand = new AsyncRelayCommand(CancelFavoriteEditAsync);
     }
 
     public ObservableCollection<ClipboardItemViewModel> HistoryItems { get; } = new();
     public ObservableCollection<FavoriteItemViewModel> FavoriteItems { get; } = new();
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveFavoriteCommand))]
+    private FavoriteEditorViewModel? favoriteEditor;
+
+    [ObservableProperty]
+    private FavoriteItemViewModel? editingFavorite;
+
     public IAsyncRelayCommand RefreshCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> PasteHistoryCommand { get; }
     public IAsyncRelayCommand<FavoriteItemViewModel> PasteFavoriteCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> AddHistoryToFavoritesCommand { get; }
     public IAsyncRelayCommand<ClipboardItemViewModel> DeleteHistoryCommand { get; }
     public IAsyncRelayCommand<FavoriteItemViewModel> DeleteFavoriteCommand { get; }
+    public IRelayCommand NewFavoriteCommand { get; }
+    public IRelayCommand<FavoriteItemViewModel> EditFavoriteCommand { get; }
+    public IAsyncRelayCommand SaveFavoriteCommand { get; }
+    public IAsyncRelayCommand CancelFavoriteEditCommand { get; }
     public Func<CancellationToken, Task> RestorePasteTarget { get; set; } = _ => Task.CompletedTask;
+    public Func<CancellationToken, Task> FavoriteHotkeysChangedAsync { get; set; } = _ => Task.CompletedTask;
 
     public event EventHandler? CloseRequested;
+
+    partial void OnFavoriteEditorChanged(FavoriteEditorViewModel? oldValue, FavoriteEditorViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= OnFavoriteEditorPropertyChanged;
+        }
+
+        if (newValue is not null)
+        {
+            newValue.PropertyChanged += OnFavoriteEditorPropertyChanged;
+        }
+    }
+
+    private void OnFavoriteEditorPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FavoriteEditorViewModel.IsValid) or nameof(FavoriteEditorViewModel.ValidationMessage))
+        {
+            SaveFavoriteCommand.NotifyCanExecuteChanged();
+        }
+    }
 
     private async Task RefreshAsync(CancellationToken cancellationToken)
     {
@@ -107,6 +144,7 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
         await clipboardRepository.AddFavoriteAsync(favorite, cancellationToken);
         FavoriteItems.Add(new FavoriteItemViewModel(favorite));
+        await FavoriteHotkeysChangedAsync(cancellationToken);
     }
 
     private async Task DeleteHistoryAsync(ClipboardItemViewModel? item, CancellationToken cancellationToken)
@@ -129,6 +167,110 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
         await clipboardRepository.DeleteFavoriteAsync(item.Id, cancellationToken);
         FavoriteItems.Remove(item);
+        if (ReferenceEquals(EditingFavorite, item))
+        {
+            ClearFavoriteEditor();
+        }
+
+        await FavoriteHotkeysChangedAsync(cancellationToken);
+    }
+
+    private void StartNewFavorite()
+    {
+        EditingFavorite = null;
+        FavoriteEditor = new FavoriteEditorViewModel();
+    }
+
+    private void StartEditFavorite(FavoriteItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        EditingFavorite = item;
+        FavoriteEditor = new FavoriteEditorViewModel
+        {
+            Title = item.Title,
+            Content = item.Content,
+            Hotkey = item.Hotkey
+        };
+    }
+
+    private bool CanSaveFavorite()
+    {
+        return FavoriteEditor?.IsValid == true;
+    }
+
+    private async Task SaveFavoriteAsync(CancellationToken cancellationToken)
+    {
+        if (FavoriteEditor?.IsValid != true)
+        {
+            return;
+        }
+
+        if (EditingFavorite is null)
+        {
+            await SaveNewFavoriteAsync(FavoriteEditor, cancellationToken);
+        }
+        else
+        {
+            await SaveEditedFavoriteAsync(EditingFavorite, FavoriteEditor, cancellationToken);
+        }
+
+        ClearFavoriteEditor();
+        await FavoriteHotkeysChangedAsync(cancellationToken);
+    }
+
+    private Task CancelFavoriteEditAsync(CancellationToken cancellationToken)
+    {
+        ClearFavoriteEditor();
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveNewFavoriteAsync(FavoriteEditorViewModel editor, CancellationToken cancellationToken)
+    {
+        var now = clock.Now;
+        var favorite = new FavoriteItem(
+            Guid.NewGuid(),
+            editor.Title.Trim(),
+            editor.Content,
+            NormalizeHotkey(editor.Hotkey),
+            SortOrder: GetNextFavoriteSortOrder(),
+            CreatedAt: now,
+            UpdatedAt: now,
+            LastUsedAt: null,
+            UseCount: 0);
+
+        await clipboardRepository.AddFavoriteAsync(favorite, cancellationToken);
+        FavoriteItems.Add(new FavoriteItemViewModel(favorite));
+    }
+
+    private async Task SaveEditedFavoriteAsync(
+        FavoriteItemViewModel item,
+        FavoriteEditorViewModel editor,
+        CancellationToken cancellationToken)
+    {
+        var favorite = item.Item with
+        {
+            Title = editor.Title.Trim(),
+            Content = editor.Content,
+            Hotkey = NormalizeHotkey(editor.Hotkey),
+            UpdatedAt = clock.Now
+        };
+
+        await clipboardRepository.UpdateFavoriteAsync(favorite, cancellationToken);
+        var index = FavoriteItems.IndexOf(item);
+        if (index >= 0)
+        {
+            FavoriteItems[index] = new FavoriteItemViewModel(favorite);
+        }
+    }
+
+    private void ClearFavoriteEditor()
+    {
+        FavoriteEditor = null;
+        EditingFavorite = null;
     }
 
     private int GetNextFavoriteSortOrder()
@@ -151,5 +293,10 @@ public sealed partial class FloatingPanelViewModel : ObservableObject
 
         title = string.IsNullOrEmpty(title) ? "Favorite" : title;
         return title.Length <= FavoriteTitleLimit ? title : title[..FavoriteTitleLimit];
+    }
+
+    private static string? NormalizeHotkey(string? hotkey)
+    {
+        return string.IsNullOrWhiteSpace(hotkey) ? null : hotkey.Trim();
     }
 }

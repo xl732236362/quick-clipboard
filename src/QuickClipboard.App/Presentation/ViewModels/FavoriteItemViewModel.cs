@@ -7,6 +7,7 @@ public sealed partial class FavoriteItemViewModel : ObservableObject
 {
     public FavoriteItemViewModel(FavoriteItem item)
     {
+        Item = item;
         Id = item.Id;
         Title = item.Title;
         Preview = PreviewText.Create(item.Content);
@@ -15,6 +16,7 @@ public sealed partial class FavoriteItemViewModel : ObservableObject
         SortOrder = item.SortOrder;
     }
 
+    public FavoriteItem Item { get; }
     public Guid Id { get; }
     public string Title { get; }
     public string Preview { get; }
