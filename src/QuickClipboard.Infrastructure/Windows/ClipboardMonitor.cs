@@ -5,11 +5,14 @@ using System.Windows;
 using System.Windows.Interop;
 using Application = System.Windows.Application;
 using Clipboard = System.Windows.Clipboard;
+using QuickClipboard.Core.Services;
 
 namespace QuickClipboard.Infrastructure.Windows;
 
-public sealed class ClipboardMonitor : IDisposable
+public sealed class ClipboardMonitor : IClipboardChangeSuppressor, IDisposable
 {
+    private static readonly TimeSpan DefaultSuppressionDuration = TimeSpan.FromMilliseconds(500);
+
     private HwndSource? _source;
     private DateTimeOffset _suppressedUntil;
     private bool _listenerRegistered;
@@ -73,6 +76,11 @@ public sealed class ClipboardMonitor : IDisposable
         }
 
         _suppressedUntil = DateTimeOffset.Now.Add(duration);
+    }
+
+    public void SuppressNextChanges()
+    {
+        SuppressNextChanges(DefaultSuppressionDuration);
     }
 
     public void Dispose()

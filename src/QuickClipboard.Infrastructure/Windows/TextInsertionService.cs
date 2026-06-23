@@ -11,6 +11,32 @@ public sealed class TextInsertionService : ITextInsertionService
 {
     private static readonly TimeSpan ClipboardRestoreDelay = TimeSpan.FromMilliseconds(120);
 
+    private readonly IClipboardChangeSuppressor clipboardChangeSuppressor;
+    private readonly IClipboardGateway clipboardGateway;
+    private readonly IPasteShortcutSender pasteShortcutSender;
+    private readonly TimeSpan clipboardRestoreDelay;
+
+    public TextInsertionService(IClipboardChangeSuppressor clipboardChangeSuppressor)
+        : this(
+            clipboardChangeSuppressor,
+            new WpfClipboardGateway(),
+            new Win32PasteShortcutSender(),
+            ClipboardRestoreDelay)
+    {
+    }
+
+    internal TextInsertionService(
+        IClipboardChangeSuppressor clipboardChangeSuppressor,
+        IClipboardGateway clipboardGateway,
+        IPasteShortcutSender pasteShortcutSender,
+        TimeSpan clipboardRestoreDelay)
+    {
+        this.clipboardChangeSuppressor = clipboardChangeSuppressor;
+        this.clipboardGateway = clipboardGateway;
+        this.pasteShortcutSender = pasteShortcutSender;
+        this.clipboardRestoreDelay = clipboardRestoreDelay;
+    }
+
     public Task InsertTextAsync(string text, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -24,14 +50,15 @@ public sealed class TextInsertionService : ITextInsertionService
         return InsertTextOnDispatcherAsync(text, cancellationToken);
     }
 
-    private static async Task InsertTextOnDispatcherAsync(string text, CancellationToken cancellationToken)
+    private async Task InsertTextOnDispatcherAsync(string text, CancellationToken cancellationToken)
     {
         System.Windows.IDataObject? original;
 
         try
         {
-            original = System.Windows.Clipboard.GetDataObject();
-            System.Windows.Clipboard.SetText(text, System.Windows.TextDataFormat.UnicodeText);
+            clipboardChangeSuppressor.SuppressNextChanges();
+            original = clipboardGateway.GetDataObject();
+            clipboardGateway.SetText(text);
         }
         catch (ExternalException ex)
         {
@@ -41,9 +68,9 @@ public sealed class TextInsertionService : ITextInsertionService
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            SendPasteShortcut();
+            pasteShortcutSender.SendPasteShortcut();
 
-            await Task.Delay(ClipboardRestoreDelay, cancellationToken).ConfigureAwait(true);
+            await Task.Delay(clipboardRestoreDelay, cancellationToken).ConfigureAwait(true);
         }
         finally
         {
@@ -51,7 +78,7 @@ public sealed class TextInsertionService : ITextInsertionService
         }
     }
 
-    private static void TryRestoreClipboard(System.Windows.IDataObject? original)
+    private void TryRestoreClipboard(System.Windows.IDataObject? original)
     {
         if (original is null)
         {
@@ -60,15 +87,50 @@ public sealed class TextInsertionService : ITextInsertionService
 
         try
         {
-            System.Windows.Clipboard.SetDataObject(original, true);
+            clipboardGateway.SetDataObject(original, true);
         }
         catch (ExternalException ex)
         {
             Debug.WriteLine($"Failed to restore clipboard after text insertion: {ex}");
         }
     }
+}
 
-    private static void SendPasteShortcut()
+internal interface IClipboardGateway
+{
+    System.Windows.IDataObject? GetDataObject();
+
+    void SetText(string text);
+
+    void SetDataObject(System.Windows.IDataObject dataObject, bool copy);
+}
+
+internal interface IPasteShortcutSender
+{
+    void SendPasteShortcut();
+}
+
+internal sealed class WpfClipboardGateway : IClipboardGateway
+{
+    public System.Windows.IDataObject? GetDataObject()
+    {
+        return System.Windows.Clipboard.GetDataObject();
+    }
+
+    public void SetText(string text)
+    {
+        System.Windows.Clipboard.SetText(text, System.Windows.TextDataFormat.UnicodeText);
+    }
+
+    public void SetDataObject(System.Windows.IDataObject dataObject, bool copy)
+    {
+        System.Windows.Clipboard.SetDataObject(dataObject, copy);
+    }
+}
+
+internal sealed class Win32PasteShortcutSender : IPasteShortcutSender
+{
+    public void SendPasteShortcut()
     {
         var inputs = new[]
         {

@@ -9,6 +9,7 @@ public sealed class FavoriteHotkeyController(
     IClipboardRepository clipboardRepository,
     ITextInsertionService textInsertionService,
     IHotkeyInputGate hotkeyInputGate,
+    IForegroundWindowRestorer foregroundWindowRestorer,
     IClock clock)
 {
     private const string FavoriteHotkeyPrefix = "favorite:";
@@ -71,6 +72,8 @@ public sealed class FavoriteHotkeyController(
             return;
         }
 
+        var targetWindow = foregroundWindowRestorer.CaptureCurrent();
+
         var favorites = await clipboardRepository.GetFavoritesAsync(cancellationToken);
         var favorite = favorites.FirstOrDefault(item => item.Id == favoriteId);
         if (favorite is null)
@@ -102,6 +105,7 @@ public sealed class FavoriteHotkeyController(
             }
         }
 
+        await foregroundWindowRestorer.RestoreAsync(targetWindow, cancellationToken);
         await textInsertionService.InsertTextAsync(favorite.Content, cancellationToken);
         await clipboardRepository.MarkFavoriteUsedAsync(favorite.Id, clock.Now, cancellationToken);
     }

@@ -28,6 +28,7 @@ public static class Bootstrapper
         services.AddSingleton<ISettingsRepository, SqliteSettingsRepository>();
         services.AddSingleton<IClock, WindowsClock>();
         services.AddSingleton<ClipboardMonitor>();
+        services.AddSingleton<IClipboardChangeSuppressor>(provider => provider.GetRequiredService<ClipboardMonitor>());
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<IGlobalHotkeyRegistrar>(provider => provider.GetRequiredService<GlobalHotkeyService>());
         services.AddSingleton<PanelPositionService>();

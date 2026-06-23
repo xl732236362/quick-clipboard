@@ -23,6 +23,7 @@ public sealed class FavoriteHotkeyControllerTests
             new FakeClipboardRepository([first, blank, invalid, second]),
             new FakeTextInsertionService(),
             new FakeHotkeyInputGate(),
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.RefreshFavoriteHotkeysAsync();
@@ -43,6 +44,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             new FakeTextInsertionService(),
             new FakeHotkeyInputGate(),
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
         await controller.RefreshFavoriteHotkeysAsync();
         repository.Favorites = [second];
@@ -67,6 +69,7 @@ public sealed class FavoriteHotkeyControllerTests
             new FakeClipboardRepository([first, second]),
             new FakeTextInsertionService(),
             new FakeHotkeyInputGate(),
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.RefreshFavoriteHotkeysAsync();
@@ -86,6 +89,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             insertion,
             gate,
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
@@ -107,6 +111,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             insertion,
             gate,
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.HandleHotkeyPressedAsync("panel");
@@ -122,21 +127,48 @@ public sealed class FavoriteHotkeyControllerTests
     {
         var favorite = CreateFavorite("Greeting", "hello", "Ctrl+Alt+1");
         var operations = new List<string>();
-        var repository = new FakeClipboardRepository([favorite]);
+        var repository = new FakeClipboardRepository([favorite], operations);
         var insertion = new FakeTextInsertionService(operations);
         var gate = new FakeHotkeyInputGate(operations);
+        var restorer = new FakeForegroundWindowRestorer(operations);
         var controller = new FavoriteHotkeyController(
             new FakeHotkeyRegistrar(),
             repository,
             insertion,
             gate,
+            restorer,
             new FakeClock(Now));
 
         await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
 
         gate.WaitCalls.Should().Equal(HotkeyModifiers.Control | HotkeyModifiers.Alt);
-        operations.Should().Equal("gate:Alt, Control", "insert:hello");
+        operations.Should().Equal("capture", "gate:Alt, Control", "restore:123", "insert:hello", "mark");
         repository.MarkedFavoriteIds.Should().Equal(favorite.Id);
+    }
+
+    [Fact]
+    public async Task HandleFavoriteHotkeyPressedDoesNotRestoreOrInsertUnknownFavorite()
+    {
+        var favorite = CreateFavorite("Greeting", "hello", "Ctrl+Alt+1");
+        var operations = new List<string>();
+        var repository = new FakeClipboardRepository([favorite], operations);
+        var insertion = new FakeTextInsertionService(operations);
+        var gate = new FakeHotkeyInputGate(operations);
+        var restorer = new FakeForegroundWindowRestorer(operations);
+        var controller = new FavoriteHotkeyController(
+            new FakeHotkeyRegistrar(),
+            repository,
+            insertion,
+            gate,
+            restorer,
+            new FakeClock(Now));
+
+        await controller.HandleHotkeyPressedAsync($"favorite:{Guid.NewGuid()}");
+
+        operations.Should().Equal("capture");
+        insertion.InsertedText.Should().BeEmpty();
+        repository.MarkedFavoriteIds.Should().BeEmpty();
+        gate.WaitCalls.Should().BeEmpty();
     }
 
     [Fact]
@@ -154,6 +186,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             insertion,
             gate,
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
@@ -178,6 +211,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             insertion,
             gate,
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         await controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
@@ -201,6 +235,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             insertion,
             gate,
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         var act = () => controller.HandleHotkeyPressedAsync($"favorite:{favorite.Id}");
@@ -224,6 +259,7 @@ public sealed class FavoriteHotkeyControllerTests
             repository,
             new FakeTextInsertionService(),
             new FakeHotkeyInputGate(),
+            new FakeForegroundWindowRestorer(),
             new FakeClock(Now));
 
         var firstRefresh = controller.RefreshFavoriteHotkeysAsync();
@@ -275,7 +311,9 @@ public sealed class FavoriteHotkeyControllerTests
         }
     }
 
-    private class FakeClipboardRepository(IReadOnlyList<FavoriteItem> favorites) : IClipboardRepository
+    private class FakeClipboardRepository(
+        IReadOnlyList<FavoriteItem> favorites,
+        List<string>? operations = null) : IClipboardRepository
     {
         public IReadOnlyList<FavoriteItem> Favorites { get; set; } = favorites;
         public List<Guid> MarkedFavoriteIds { get; } = [];
@@ -340,6 +378,7 @@ public sealed class FavoriteHotkeyControllerTests
         {
             MarkedFavoriteIds.Add(id);
             MarkedFavoriteTimes.Add(usedAt);
+            operations?.Add("mark");
             return Task.CompletedTask;
         }
     }
@@ -382,6 +421,23 @@ public sealed class FavoriteHotkeyControllerTests
             }
 
             return Task.FromResult(Released);
+        }
+    }
+
+    private sealed class FakeForegroundWindowRestorer(
+        List<string>? operations = null,
+        IntPtr? capturedWindow = null) : IForegroundWindowRestorer
+    {
+        public IntPtr CaptureCurrent()
+        {
+            operations?.Add("capture");
+            return capturedWindow ?? new IntPtr(123);
+        }
+
+        public Task RestoreAsync(IntPtr windowHandle, CancellationToken cancellationToken = default)
+        {
+            operations?.Add($"restore:{windowHandle}");
+            return Task.CompletedTask;
         }
     }
 
