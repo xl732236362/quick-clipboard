@@ -59,7 +59,24 @@ internal static partial class NativeMethods
     internal struct InputUnion
     {
         [FieldOffset(0)]
+        internal MouseInput mi;
+
+        [FieldOffset(0)]
         internal KeyboardInput ki;
+
+        [FieldOffset(0)]
+        internal HardwareInput hi;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MouseInput
+    {
+        internal int dx;
+        internal int dy;
+        internal uint mouseData;
+        internal uint dwFlags;
+        internal uint time;
+        internal UIntPtr dwExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -70,6 +87,14 @@ internal static partial class NativeMethods
         internal uint dwFlags;
         internal uint time;
         internal UIntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct HardwareInput
+    {
+        internal uint uMsg;
+        internal ushort wParamL;
+        internal ushort wParamH;
     }
 
     [StructLayout(LayoutKind.Sequential)]

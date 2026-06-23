@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Application = System.Windows.Application;
@@ -45,11 +46,11 @@ public sealed class TextInsertionService
         }
         finally
         {
-            RestoreClipboard(original);
+            TryRestoreClipboard(original);
         }
     }
 
-    private static void RestoreClipboard(System.Windows.IDataObject? original)
+    private static void TryRestoreClipboard(System.Windows.IDataObject? original)
     {
         if (original is null)
         {
@@ -62,7 +63,7 @@ public sealed class TextInsertionService
         }
         catch (ExternalException ex)
         {
-            throw new InvalidOperationException("Clipboard is currently unavailable.", ex);
+            Debug.WriteLine($"Failed to restore clipboard after text insertion: {ex}");
         }
     }
 
@@ -80,9 +81,31 @@ public sealed class TextInsertionService
         if (sent != inputs.Length)
         {
             var error = new Win32Exception(Marshal.GetLastPInvokeError());
+            TryReleasePasteShortcutKeys();
             throw new InvalidOperationException(
                 $"Failed to send paste shortcut. Sent {sent} of {inputs.Length} keyboard events: {error.Message}",
                 error);
+        }
+    }
+
+    private static void TryReleasePasteShortcutKeys()
+    {
+        var cleanupInputs = new[]
+        {
+            CreateKeyboardInput(NativeMethods.VK_V, NativeMethods.KEYEVENTF_KEYUP),
+            CreateKeyboardInput(NativeMethods.VK_CONTROL, NativeMethods.KEYEVENTF_KEYUP)
+        };
+
+        var sent = NativeMethods.SendInput(
+            (uint)cleanupInputs.Length,
+            cleanupInputs,
+            Marshal.SizeOf<NativeMethods.Input>());
+
+        if (sent != cleanupInputs.Length)
+        {
+            var error = new Win32Exception(Marshal.GetLastPInvokeError());
+            Debug.WriteLine(
+                $"Failed to release paste shortcut keys after partial SendInput. Sent {sent} of {cleanupInputs.Length} keyboard events: {error.Message}");
         }
     }
 
