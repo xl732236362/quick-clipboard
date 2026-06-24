@@ -102,6 +102,12 @@ public partial class FloatingPanelWindow : Window, IFloatingPanelWindow
             && Math.Abs(left - right) < 0.5;
     }
 
+    private void OnCloseButtonClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RequestClose();
+    }
+
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         hwndSource = (HwndSource?)PresentationSource.FromVisual(this);

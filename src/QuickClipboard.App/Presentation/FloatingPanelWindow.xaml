@@ -57,6 +57,42 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="{StaticResource PanelTextBrush}" />
         </Style>
+
+        <Style x:Key="PanelCloseButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource PanelMutedTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ToolTip" Value="关闭" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource PanelTextBrush}" />
+                                <Setter Property="Background" Value="{StaticResource PanelItemHoverBrush}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource PanelAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#3D3D3D" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Background="{StaticResource PanelBackgroundBrush}"
@@ -65,11 +101,20 @@
             SnapsToDevicePixels="True">
         <Grid>
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TabControl x:Name="PanelTabs" Grid.Row="0">
+            <Button Grid.Row="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,0,0,4"
+                    Click="OnCloseButtonClick"
+                    Content="X"
+                    Style="{StaticResource PanelCloseButtonStyle}" />
+
+            <TabControl x:Name="PanelTabs" Grid.Row="1">
                 <TabItem Header="历史">
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Top"
@@ -232,7 +277,7 @@
                 </TabItem>
             </TabControl>
 
-            <Grid Grid.Row="1" Margin="2,8,2,0">
+            <Grid Grid.Row="2" Margin="2,8,2,0">
                 <TextBlock FontSize="11"
                            Text="{Binding RecordingStatusText}">
                     <TextBlock.Style>
